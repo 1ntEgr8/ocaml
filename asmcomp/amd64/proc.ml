@@ -133,6 +133,7 @@ let phys_reg n =
   if n < 100 then hard_int_reg.(n) else hard_float_reg.(n - 100)
 
 let rax = phys_reg 0
+let rdi = phys_reg 2
 let rdx = phys_reg 4
 let r10 = phys_reg 10
 let r11 = phys_reg 11
@@ -319,6 +320,7 @@ let destroyed_at_oper = function
   | Iop(Ialloc _ | Ipoll _) -> destroyed_at_alloc_or_poll
   | Iop(Iintop(Imulh | Icomp _) | Iintop_imm((Icomp _), _))
         -> [| rax |]
+  | Iop(Idup) | Iop(Idrop) -> [| rax; rdi |]
   | Iswitch(_, _) -> [| rax; rdx |]
   | Itrywith _ -> [| r11 |]
   | _ ->

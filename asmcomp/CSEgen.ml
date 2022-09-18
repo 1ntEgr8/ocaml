@@ -229,6 +229,8 @@ method class_of_operation op =
   | Iload(_,_,mut) -> Op_load mut
   | Istore(_,_,asg) -> Op_store asg
   | Ialloc _ | Ipoll _ -> assert false     (* treated specially *)
+  (* TODO unsure what to put here *)
+  | Idup | Idrop -> Op_other
   | Iintop(Icheckbound) -> Op_checkbound
   | Iintop _ -> Op_pure
   | Iintop_imm(Icheckbound, _) -> Op_checkbound

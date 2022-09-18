@@ -665,6 +665,10 @@ let rec lam ppf = function
       end
   | Lifused(id, expr) ->
       fprintf ppf "@[<2>(ifused@ %a@ %a)@]" Ident.print id lam expr
+  | Ldup e ->
+      fprintf ppf "@[<2>(dup %a)@]" lam e
+  | Ldrop e ->
+      fprintf ppf "@[<2>(drop %a)@]" lam e
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->

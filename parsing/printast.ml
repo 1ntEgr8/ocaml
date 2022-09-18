@@ -397,6 +397,12 @@ and expression i ppf x =
   | Pexp_extension (s, arg) ->
       line i ppf "Pexp_extension \"%s\"\n" s.txt;
       payload i ppf arg
+  | Pexp_dup e ->
+      line i ppf "Pexp_dup\n";
+      expression i ppf e;
+  | Pexp_drop e ->
+      line i ppf "Pexp_drop\n";
+      expression i ppf e;
   | Pexp_unreachable ->
       line i ppf "Pexp_unreachable"
 

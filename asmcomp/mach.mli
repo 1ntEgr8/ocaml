@@ -62,6 +62,8 @@ type operation =
   | Iopaque
   | Ispecific of Arch.specific_operation
   | Ipoll of { return_label: Cmm.label option }
+  | Idup
+  | Idrop
 
 type instruction =
   { desc: instruction_desc;

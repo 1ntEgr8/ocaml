@@ -88,7 +88,7 @@ typedef uintnat mark_t;
 #define Is_exception_result(v) (((v) & 3) == 2)
 #define Extract_exception(v) ((v) & ~3)
 
-/* Structure of the header:
+/* Old structure of the header:
 
 For 16-bit and 32-bit architectures:
      +--------+-------+-----+
@@ -113,6 +113,23 @@ bits  63        (64-P) (63-P)        10 9     8 7   0
 
 */
 
+/* New structure of the header:
+
+16-bit and 32-bit architectures are not supported
+
+For 64-bit architectures:
+     +----------------+----------------+-------------+
+     |    ref count   | wosize         | color | tag |
+     +----------------+----------------+-------------+
+bits  63            31 30            10 9     8 7   0
+
+Spacetime profiling is not supported.
+
+*/
+
+// TODO(1ntEgr8): Support compatibility with 32-bit platforms by disabling
+// ref-counting on such systems
+
 #define Tag_hd(hd) ((tag_t) ((hd) & 0xFF))
 
 #define Gen_profinfo_shift(width) (64 - (width))
@@ -127,13 +144,16 @@ bits  63        (64-P) (63-P)        10 9     8 7   0
 /* Use NO_PROFINFO to debug problems with profinfo macros */
 #define NO_PROFINFO 0xff
 #define Hd_no_profinfo(hd) ((hd) & ~(PROFINFO_MASK << PROFINFO_SHIFT))
-#define Wosize_hd(hd) ((mlsize_t) ((Hd_no_profinfo(hd)) >> 10))
+#define Wosize_hd(hd) ((mlsize_t) (((Hd_no_profinfo(hd)) >> 10) & 0xFFFFF))
 #define Profinfo_hd(hd) (Gen_profinfo_hd(PROFINFO_WIDTH, hd))
 #else
 #define NO_PROFINFO 0
-#define Wosize_hd(hd) ((mlsize_t) ((hd) >> 10))
+#define Wosize_hd(hd) ((mlsize_t) (((hd) >> 10) & 0xFFFFF))
 #define Profinfo_hd(hd) NO_PROFINFO
 #endif /* WITH_PROFINFO */
+
+// Refcount
+#define Refcnt_hd(hd) ((mlsize_t) ((hd >> 32)))
 
 #define Hd_val(val) (((header_t *) (val)) [-1])        /* Also an l-value. */
 #define Hd_op(op) (Hd_val (op))                        /* Also an l-value. */
@@ -150,9 +170,9 @@ bits  63        (64-P) (63-P)        10 9     8 7   0
 #define Num_tags (1 << 8)
 #ifdef ARCH_SIXTYFOUR
 #ifdef WITH_PROFINFO
-#define Max_wosize (((intnat)1 << (54-PROFINFO_WIDTH)) - 1)
+#define Max_wosize (((intnat)1 << (22-PROFINFO_WIDTH)) - 1)
 #else
-#define Max_wosize (((intnat)1 << 54) - 1)
+#define Max_wosize (((intnat)1 << 22) - 1)
 #endif
 #else
 #define Max_wosize ((1 << 22) - 1)

@@ -302,6 +302,8 @@ type lambda =
   | Lsend of meth_kind * lambda * lambda * lambda list * scoped_location
   | Levent of lambda * lambda_event
   | Lifused of Ident.t * lambda
+  | Ldup of lambda
+  | Ldrop of lambda
 
 and lfunction =
   { kind: function_kind;
@@ -443,6 +445,8 @@ let make_key e =
     | Lsend (m,e1,e2,es,_loc) ->
         Lsend (m,tr_rec env e1,tr_rec env e2,tr_recs env es,Loc_unknown)
     | Lifused (id,e) -> Lifused (id,tr_rec env e)
+    | Ldup e -> Ldup (tr_rec env e)
+    | Ldrop e -> Ldrop (tr_rec env e)
     | Lletrec _|Lfunction _
     | Lfor _ | Lwhile _
 (* Beware: (PR#6412) the event argument to Levent
@@ -541,6 +545,8 @@ let shallow_iter ~tail ~non_tail:f = function
       tail e
   | Lifused (_v, e) ->
       tail e
+  | Ldup e -> f e
+  | Ldrop e -> f e
 
 let iter_head_constructor f l =
   shallow_iter ~tail:f ~non_tail:f l
@@ -620,6 +626,8 @@ let rec free_variables = function
   | Lifused (_v, e) ->
       (* Shouldn't v be considered a free variable ? *)
       free_variables e
+  | Ldup e -> free_variables e
+  | Ldrop e -> free_variables e
 
 and free_variables_list set exprs =
   List.fold_left (fun set expr -> Ident.Set.union (free_variables expr) set)
@@ -817,6 +825,8 @@ let subst update_env ?(freshen_bound_variables = false) s input_lam =
     | Lifused (id, e) ->
         let id = try Ident.Map.find id l with Not_found -> id in
         Lifused (id, subst s l e)
+    | Ldrop e -> Ldrop (subst s l e)
+    | Ldup e -> Ldup (subst s l e)
   and subst_list s l li = List.map (subst s l) li
   and subst_decl s l (id, exp) = (id, subst s l exp)
   and subst_case s l (key, case) = (key, subst s l case)
@@ -903,6 +913,8 @@ let shallow_map f = function
       Levent (f l, ev)
   | Lifused (v, e) ->
       Lifused (v, f e)
+  | Ldrop e -> Ldrop (f e)
+  | Ldup e -> Ldup (f e)
 
 let map f =
   let rec g lam = f (shallow_map g lam) in

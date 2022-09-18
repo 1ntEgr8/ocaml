@@ -92,6 +92,8 @@ let build_graph fundecl =
         interf i.next
     | Iop(Itailcall_ind) -> ()
     | Iop(Itailcall_imm _) -> ()
+    | Iop (Idup) ->
+        interf i.next
     | Iop _ ->
         add_interf_set i.res i.live;
         add_interf_self i.res;

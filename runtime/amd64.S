@@ -310,6 +310,163 @@ G(caml_system__code_begin):
         ret  /* just one instruction, so that debuggers don't display
         caml_system__code_begin instead of caml_call_gc */
 
+/* Refcount */
+
+/* Increments the reference count of an OCaml value
+
+  Argument(s): %rdi = value_ptr
+  Destroys: %rax
+  Pseudocode:
+  ```c
+  void checked_dup(struct value *value_ptr) {
+    __atomic_fetch_sub(&(Header(value_ptr).refcount), 1, __ATOMIC_RELAXED);
+  }
+
+  void dup(struct value *value_ptr) {
+    if (Header(value_ptr) & 1 == 0) {
+      rc = Header(value_ptr).refcount;
+      if (rc < 0) {
+        checked_dup(value_ptr);
+      } else {
+        Header(value_ptr).refcount = rc + 1;
+      }
+    }
+  }
+  ```
+*/
+FUNCTION(G(caml_obj_rc_dup))
+CFI_STARTPROC
+    testb   $1, %dil
+    jne     LBL(caml_obj_rc_dup_end)
+    movl    -4(%rdi), %eax
+    testl   %eax, %eax
+    js      LBL(caml_obj_rc_checked_dup)
+    incl    %eax
+    movl    %eax, -4(%rdi)
+LBL(caml_obj_rc_dup_end):
+    ret
+LBL(caml_obj_rc_checked_dup):
+    lock    decl -4(%rdi)
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_obj_rc_dup))
+
+/* Decrements the reference count of an OCaml value
+
+  Argument(s): %rdi = value_ptr
+  Destroys: %rax
+  Pseudocode:
+  ```c
+  void checked_drop(struct value *value_ptr) {
+    // TODO recursively free child
+    // TODO free value_ptr
+    // TODO handle sticky case
+  }
+
+  void drop(struct value *value_ptr) {
+    if (Header(value_ptr) & 1 == 0) {
+      rc = Header(value_ptr).refcount;
+      if (rc <= 0) {
+        checked_dup(value_ptr);
+      } else {
+        Header(value_ptr).refcount = rc - 1;
+      }
+    }
+  }
+  ```
+*/
+FUNCTION(G(caml_obj_rc_drop))
+CFI_STARTPROC
+    /* check if block */
+    testb   $1, %dil
+    jne     LBL(caml_obj_rc_drop_end)
+    movl    -4(%rdi), %eax
+    testl   %eax, %eax
+    jle     LBL(caml_obj_rc_checked_drop)
+    decl    %eax
+    movl    %eax, -4(%rdi)
+LBL(caml_obj_rc_drop_end):
+    ret
+LBL(caml_obj_rc_checked_drop):
+    /* TODO */
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_obj_rc_drop))
+
+FUNCTION(G(caml_rc_alloc))
+CFI_STARTPROC
+    /* Save caller-saved registers */
+    pushq   %rax; CFI_ADJUST (8);
+    pushq   %rcx; CFI_ADJUST (8);
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    pushq   %rdi; CFI_ADJUST (8);
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    pushq   %r10; CFI_ADJUST (8);
+    pushq   %r11; CFI_ADJUST (8);
+    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
+    movsd   %xmm0, 0*8(%rsp)
+    movsd   %xmm1, 1*8(%rsp)
+    movsd   %xmm2, 2*8(%rsp)
+    movsd   %xmm3, 3*8(%rsp)
+    movsd   %xmm4, 4*8(%rsp)
+    movsd   %xmm5, 5*8(%rsp)
+    movsd   %xmm6, 6*8(%rsp)
+    movsd   %xmm7, 7*8(%rsp)
+    movsd   %xmm8, 8*8(%rsp)
+    movsd   %xmm9, 9*8(%rsp)
+    movsd   %xmm10, 10*8(%rsp)
+    movsd   %xmm11, 11*8(%rsp)
+    movsd   %xmm12, 12*8(%rsp)
+    movsd   %xmm13, 13*8(%rsp)
+    movsd   %xmm14, 14*8(%rsp)
+    movsd   %xmm15, 15*8(%rsp)
+
+    /* Pass argument into C */
+    movq    %r15, %rdi
+
+    /* Make the call */
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_alloc)
+    CLEANUP_AFTER_C_CALL
+
+    /* Move the result into %r15 */
+    movq    %rax, %r15
+
+    /* Restore caller-saved registers */
+    movsd   0*8(%rsp), %xmm0
+    movsd   1*8(%rsp), %xmm1
+    movsd   2*8(%rsp), %xmm2
+    movsd   3*8(%rsp), %xmm3
+    movsd   4*8(%rsp), %xmm4
+    movsd   5*8(%rsp), %xmm5
+    movsd   6*8(%rsp), %xmm6
+    movsd   7*8(%rsp), %xmm7
+    movsd   8*8(%rsp), %xmm8
+    movsd   9*8(%rsp), %xmm9
+    movsd   10*8(%rsp), %xmm10
+    movsd   11*8(%rsp), %xmm11
+    movsd   12*8(%rsp), %xmm12
+    movsd   13*8(%rsp), %xmm13
+    movsd   14*8(%rsp), %xmm14
+    movsd   15*8(%rsp), %xmm15
+    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
+
+    popq    %r11; CFI_ADJUST (-8);
+    popq    %r10; CFI_ADJUST (-8);
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    popq    %rdi; CFI_ADJUST (-8);
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);
+    popq    %rcx; CFI_ADJUST (-8);
+    popq    %rax; CFI_ADJUST (-8);
+
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_alloc))
+
 /* Allocation */
 
 FUNCTION(G(caml_call_gc))

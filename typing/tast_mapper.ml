@@ -375,6 +375,10 @@ let expr sub x =
         e
     | Texp_open (od, e) ->
         Texp_open (sub.open_declaration sub od, sub.expr sub e)
+    | Texp_dup e ->
+        Texp_dup (sub.expr sub e)
+    | Texp_drop e ->
+        Texp_drop (sub.expr sub e)
   in
   {x with exp_extra; exp_desc; exp_env}
 

@@ -165,6 +165,8 @@ and operation =
   | Craise of Lambda.raise_kind
   | Ccheckbound
   | Copaque
+  | Cdup
+  | Cdrop
 
 type expression =
     Cconst_int of int * Debuginfo.t

@@ -228,6 +228,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       loop ~depth e2;
       List.iter (loop ~depth) args;
       ignore_debuginfo dbg
+    | Udup _ | Udrop _ -> failwith "dup/drop not supported in flambda"
     | Uunreachable ->
       ()
   in
@@ -444,6 +445,7 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
       ignore_ulambda_list args;
       let_stack := [];
       ignore_debuginfo dbg
+    | Udup _ | Udrop _ -> failwith "dup/drop not supported in flambda"
     | Uunreachable ->
       let_stack := []
   in
@@ -587,6 +589,7 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
     let e2 = substitute_let_moveable is_let_moveable env e2 in
     let args = substitute_let_moveable_list is_let_moveable env args in
     Usend (kind, e1, e2, args, dbg)
+  | Udup _ | Udrop _ -> failwith "dup/drop not supported in flambda"
   | Uunreachable ->
     Uunreachable
 
@@ -811,6 +814,7 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
     let e2 = un_anf var_info env e2 in
     let args = un_anf_list var_info env args in
     Usend (kind, e1, e2, args, dbg), Fixed
+  | Udup _ | Udrop _ -> failwith "dup/drop not supported in flambda"
   | Uunreachable ->
     Uunreachable, Fixed
 
