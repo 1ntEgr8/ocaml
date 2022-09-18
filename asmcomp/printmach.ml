@@ -152,10 +152,12 @@ let operation op arg ppf res =
       Arch.print_specific_operation reg op ppf arg
   | Ipoll { return_label } ->
       fprintf ppf "poll call";
-      match return_label with
+      (match return_label with
       | None -> ()
       | Some return_label ->
-        fprintf ppf " returning to L%d" return_label
+        fprintf ppf " returning to L%d" return_label)
+  | Idup -> fprintf ppf "dup "
+  | Idrop -> fprintf ppf "drop "
 
 let rec instr ppf i =
   if !Clflags.dump_live then begin
@@ -213,7 +215,7 @@ let rec instr ppf i =
     fprintf ppf "%s" (Debuginfo.to_string i.dbg);
   begin match i.next.desc with
     Iend -> ()
-  | _ -> fprintf ppf "@,%a" instr i.next
+  | _ -> () (* fprintf ppf "@,%a" instr i.next *)
   end
 
 let fundecl ppf f =

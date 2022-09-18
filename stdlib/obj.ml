@@ -46,6 +46,9 @@ external truncate : t -> int -> unit = "caml_obj_truncate"
 external add_offset : t -> Int32.t -> t = "caml_obj_add_offset"
 external with_tag : int -> t -> t = "caml_obj_with_tag"
 
+(* Refcount helpers *)
+external get_refcount : 'a -> int = "caml_obj_get_refcount"
+
 let first_non_constant_constructor_tag = 0
 let last_non_constant_constructor_tag = 245
 

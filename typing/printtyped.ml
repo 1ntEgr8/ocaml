@@ -450,6 +450,12 @@ and expression i ppf x =
       module_expr i ppf o.open_expr;
       attributes i ppf o.open_attributes;
       expression i ppf e;
+  | Texp_dup e ->
+      line i ppf "Texp_dup";
+      expression i ppf e;
+  | Texp_drop e ->
+      line i ppf "Texp_drop";
+      expression i ppf e;
 
 and value_description i ppf x =
   line i ppf "value_description %a %a\n" fmt_ident x.val_id fmt_location

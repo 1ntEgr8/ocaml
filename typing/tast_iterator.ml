@@ -260,7 +260,8 @@ let expr sub {exp_extra; exp_desc; exp_env; _} =
   | Texp_open (od, e) ->
       sub.open_declaration sub od;
       sub.expr sub e
-
+  | Texp_dup e -> sub.expr sub e
+  | Texp_drop e -> sub.expr sub e
 
 let package_type sub {pack_fields; _} =
   List.iter (fun (_, p) -> sub.typ sub p) pack_fields

@@ -281,3 +281,13 @@ struct queue_chunk {
   struct queue_chunk *next;
   value entries[ENTRIES_PER_QUEUE_CHUNK];
 };
+
+/* Refcount helpers */
+CAMLprim value caml_obj_get_refcount(value obj) {
+  if (Is_long(obj)) {
+    return Val_int(0);
+  } else {
+    header_t hd = Hd_val (obj);
+    return Val_int(Refcnt_hd(hd));
+  }
+}

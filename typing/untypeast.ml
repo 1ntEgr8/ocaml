@@ -516,6 +516,8 @@ let expression sub exp =
                              ])
     | Texp_open (od, exp) ->
         Pexp_open (sub.open_declaration sub od, sub.expr sub exp)
+    | Texp_dup e -> Pexp_dup (sub.expr sub e)
+    | Texp_drop e -> Pexp_drop (sub.expr sub e)
   in
   List.fold_right (exp_extra sub) exp.exp_extra
     (Exp.mk ~loc ~attrs desc)

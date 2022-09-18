@@ -592,8 +592,25 @@ let emit_instr env fallthrough i =
       | Double ->
           I.movsd (arg i 0) (addressing addr REAL8 i 1)
       end
+  (* TODO (1ntEgr8):
+     Add argument to Idup and Idrop constr that points to the argument.
+     This will give us knowledge of the type of the lambda.
+     If the lambda is a long, then no need to emit anything :)
+  *)
+  | Lop(Idup) ->
+      I.mov (arg i 0) rdi;
+      emit_call "caml_obj_rc_dup"
+  | Lop(Idrop) -> 
+      I.mov (arg i 0) rdi;
+      emit_call "caml_obj_rc_drop"
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
+      I.mov (int n) r15 ;
+      emit_call "caml_rc_alloc" ;
+      record_frame env i.live (Dbg_alloc dbginfo) ;
+      I.lea (mem64 NONE 8 R15) (res i 0);
+  (*
+  | Lop(Ialloc { bytes = n; dbginfo }) ->
       if env.f.fun_fast then begin
         I.sub (int n) r15;
         I.cmp (domain_field Domainstate.Domain_young_limit) r15;
@@ -622,6 +639,10 @@ let emit_instr env fallthrough i =
         def_label label;
         I.lea (mem64 NONE 8 R15) (res i 0)
       end
+  *)
+  (* No need to poll with reference counting *)
+  | Lop(Ipoll (_)) -> ()
+  (*
   | Lop(Ipoll { return_label }) ->
       I.cmp (domain_field Domainstate.Domain_young_limit) r15;
       let gc_call_label = new_label () in
@@ -643,6 +664,7 @@ let emit_instr env fallthrough i =
       | None -> def_label lbl_after_poll
       | Some _ -> I.jmp (label gc_call_label)
       end
+  *)
   | Lop(Iintop(Icomp cmp)) ->
       I.cmp (arg i 1) (arg i 0);
       I.set (cond cmp) al;

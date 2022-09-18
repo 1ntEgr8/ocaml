@@ -48,6 +48,8 @@ let keyword_table =
     "do", DO;
     "done", DONE;
     "downto", DOWNTO;
+    "my_dup", DUP;
+    "my_drop", DROP;
     "else", ELSE;
     "end", END;
     "exception", EXCEPTION;

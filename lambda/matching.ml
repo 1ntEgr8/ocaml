@@ -3587,6 +3587,8 @@ let rec map_return f = function
           List.map (fun (s, l) -> (s, map_return f l)) cases,
           Option.map (map_return f) def,
           loc )
+  | Ldup l -> Ldup (map_return f l)
+  | Ldrop l -> Ldrop (map_return f l)
   | (Lstaticraise _ | Lprim (Praise _, _, _)) as l -> l
   | ( Lvar _ | Lmutvar _ | Lconst _ | Lapply _ | Lfunction _ | Lsend _ | Lprim _
     | Lwhile _ | Lfor _ | Lassign _ | Lifused _ ) as l ->

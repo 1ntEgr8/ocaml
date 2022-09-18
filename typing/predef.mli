@@ -34,6 +34,8 @@ val type_int64: type_expr
 val type_lazy_t: type_expr -> type_expr
 val type_extension_constructor:type_expr
 val type_floatarray:type_expr
+val type_dup_t: type_expr
+val type_drop_t: type_expr
 
 val path_int: Path.t
 val path_char: Path.t

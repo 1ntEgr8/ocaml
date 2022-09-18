@@ -228,6 +228,9 @@ module Exp = struct
       pbop_exp = exp;
       pbop_loc = loc;
     }
+
+  let dup ?loc ?attrs a = mk ?loc ?attrs (Pexp_dup a)
+  let drop ?loc ?attrs a = mk ?loc ?attrs (Pexp_drop a)
 end
 
 module Mty = struct

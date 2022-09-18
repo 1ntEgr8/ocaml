@@ -192,6 +192,9 @@ module Exp:
 
     val case: pattern -> ?guard:expression -> expression -> case
     val binding_op: str -> pattern -> expression -> loc -> binding_op
+
+    val dup: ?loc:loc -> ?attrs:attrs -> expression -> expression
+    val drop: ?loc:loc -> ?attrs:attrs -> expression -> expression
   end
 
 (** Value declarations *)
