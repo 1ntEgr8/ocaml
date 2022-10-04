@@ -148,12 +148,10 @@ Spacetime profiling is not supported.
 #define Profinfo_hd(hd) (Gen_profinfo_hd(PROFINFO_WIDTH, hd))
 #else
 #define NO_PROFINFO 0
-#define Wosize_hd(hd) ((mlsize_t) (((hd) >> 10) & 0xFFFFF))
+// #define Wosize_hd(hd) ((mlsize_t) (((hd) >> 10) & 0xFFFFF))
+#define Wosize_hd(hd) ((mlsize_t) ((((int32_t)(hd)) >> 10)))
 #define Profinfo_hd(hd) NO_PROFINFO
 #endif /* WITH_PROFINFO */
-
-// Refcount
-#define Refcnt_hd(hd) ((mlsize_t) ((hd >> 32)))
 
 #define Hd_val(val) (((header_t *) (val)) [-1])        /* Also an l-value. */
 #define Hd_op(op) (Hd_val (op))                        /* Also an l-value. */
@@ -166,6 +164,14 @@ Spacetime profiling is not supported.
 #define Val_hp(hp) ((value) (((header_t *) (hp)) + 1))
 #define Op_hp(hp) ((value *) Val_hp (hp))
 #define Bp_hp(hp) ((char *) Val_hp (hp))
+
+// Refcount
+#define Refcnt_hd(hd)     ((int32_t)((hd) >> 32))
+#ifdef ARCH_BIG_ENDIAN
+#define Refcnt_val(val)   (((int32_t*)(val))[-2])      /* Also an l-value. */
+#else
+#define Refcnt_val(val)   (((int32_t*)(val))[-1])      /* Also an l-value. */
+#endif
 
 #define Num_tags (1 << 8)
 #ifdef ARCH_SIXTYFOUR
