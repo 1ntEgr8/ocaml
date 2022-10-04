@@ -633,7 +633,9 @@ clean:: partialclean
 
 ocamlc$(EXE): compilerlibs/ocamlcommon.cma \
               compilerlibs/ocamlbytecomp.cma $(BYTESTART)
-	$(CAMLC) $(LINKFLAGS) -compat-32 -o $@ $^
+	# $(CAMLC) $(LINKFLAGS) -compat-32 -o $@ $^
+	# TODO(1ntEgr8): Pass `-compat-32` once ref-counting system is stable
+	$(CAMLC) $(LINKFLAGS) -o $@ $^
 
 partialclean::
 	rm -rf ocamlc$(EXE)
