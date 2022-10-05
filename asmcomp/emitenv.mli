@@ -70,6 +70,7 @@ type per_function_env = {
   f : Linear.fundecl;
   mutable stack_offset : int;
   mutable call_gc_sites : gc_call list;  (* used in all targets except power *)
+  mutable call_slowpath_sites : (unit -> unit) list          
   mutable call_gc_label : label;                       (* used only in power *)
   mutable bound_error_sites : bound_error_call list;
                                          (* used in all targets except power *)

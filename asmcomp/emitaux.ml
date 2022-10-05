@@ -391,6 +391,7 @@ let mk_env f : Emitenv.per_function_env =
     f;
     stack_offset = 0;
     call_gc_sites = [];
+    call_slowpath_sites = [];
     bound_error_sites = [];
     bound_error_call = None;
     call_gc_label = 0;

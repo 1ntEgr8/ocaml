@@ -351,6 +351,17 @@ LBL(caml_obj_rc_checked_dup):
 CFI_ENDPROC
 ENDFUNCTION(G(caml_obj_rc_dup))
 
+/* r15: the dup argument; guaranteed pointer
+   eax: (stale) ref count; guaranteed < 0
+   TODO: implement sticky range
+*/   
+FUNCTION(G(caml_dup_checked))
+CFI_STARTPROC
+    lock    decl -4(%r15)
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_dup_checked))
+
 /* Decrements the reference count of an OCaml value
 
   Argument(s): %rdi = value_ptr
