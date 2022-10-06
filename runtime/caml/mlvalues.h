@@ -153,7 +153,7 @@ Spacetime profiling is not supported.
 #endif /* WITH_PROFINFO */
 
 // Refcount
-#define Refcnt_hd(hd) ((mlsize_t) (((hd) >> 32)))
+#define Refcnt_hd(hd) ((int32_t) (((hd) >> 32)))
 
 #define Hd_val(val) (((header_t *) (val)) [-1])        /* Also an l-value. */
 #define Hd_op(op) (Hd_val (op))                        /* Also an l-value. */
