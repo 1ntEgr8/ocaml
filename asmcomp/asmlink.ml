@@ -124,6 +124,14 @@ let runtime_lib () =
   with Not_found ->
     raise(Error(File_not_found libname))
 
+let memory_lib () =
+  let libname = "libmimalloc" ^ ext_lib in
+  try
+    if not !Clflags.with_runtime then []
+    else [ Load_path.find libname ]
+  with Not_found ->
+    raise(Error(File_not_found libname))
+
 (* First pass: determine which units are needed *)
 
 let missing_globals = (Hashtbl.create 17 : (string, string list ref) Hashtbl.t)
@@ -315,7 +323,7 @@ let call_linker file_list startup_file output_name =
   let files = startup_file :: (List.rev file_list) in
   let files, c_lib =
     if (not !Clflags.output_c_object) || main_dll || main_obj_runtime then
-      files @ (List.rev !Clflags.ccobjs) @ runtime_lib (),
+      files @ (List.rev !Clflags.ccobjs) @ runtime_lib () @ memory_lib (),
       (if !Clflags.nopervasives || (main_obj_runtime && not main_dll)
        then "" else Config.native_c_libraries)
     else
