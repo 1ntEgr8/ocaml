@@ -38,6 +38,7 @@ let bind_nonvar name arg fn =
   | _ -> let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
 
 let caml_black = Nativeint.shift_left (Nativeint.of_int 3) 8
+let rc_static  = Nativeint.min_int
     (* cf. runtime/caml/gc.h *)
 
 (* Block headers. Meaning of the tag field: see stdlib/obj.ml *)
@@ -50,7 +51,7 @@ let block_header tag sz =
 (* Static data corresponding to "value"s must be marked black in case we are
    in no-naked-pointers mode.  See [caml_darken] and the code below that emits
    structured constants and static module definitions. *)
-let black_block_header tag sz = Nativeint.logor (block_header tag sz) caml_black
+let black_block_header tag sz = Nativeint.logor (Nativeint.logor (block_header tag sz) caml_black) rc_static
 let white_closure_header sz = block_header Obj.closure_tag sz
 let black_closure_header sz = black_block_header Obj.closure_tag sz
 let infix_header ofs = block_header Obj.infix_tag ofs
@@ -2524,7 +2525,7 @@ let cdefine_symbol (symb, (global: Cmmgen_state.is_global)) =
 let emit_block symb white_header cont =
   (* Headers for structured constants must be marked black in case we
      are in no-naked-pointers mode.  See [caml_darken]. *)
-  let black_header = Nativeint.logor white_header caml_black in
+  let black_header = Nativeint.logor (Nativeint.logor white_header caml_black) 0n (* rc_static *) in
   Cint black_header :: cdefine_symbol symb @ cont
 
 let emit_string_constant_fields s cont =
