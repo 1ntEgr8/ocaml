@@ -6,25 +6,26 @@ let rec map xs f =
       let x = my_dup x' in
       let xx = my_dup xx' in
       my_drop xs;
-      (* my_dup f; *)
-      (f x) :: (map xx f)
+      let y = (my_dup f) x in
+      y :: (map xx f)
   | [] ->
       my_drop xs;
-      (* my_drop f; *)
+      my_drop f;
       []
 
 let rec sum_acc xs acc =
   match xs with
-  | x' :: xx' ->
-      let x = my_dup x' in
-      let xx = my_dup xx' in
-      my_drop xs;  (* x is not cached ! *)
+  | x :: xx ->
+      let x = my_dup x in
+      let xx = my_dup xx in
+      my_drop xs;  
       sum_acc xx (x + acc)
   | [] -> 
       my_drop xs;
       acc
 
 let sum xs = sum_acc xs 0
+
 
 let () =
   let xs = init 10 (fun x -> x) in

@@ -165,7 +165,7 @@ Spacetime profiling is not supported.
 #define Bp_hp(hp) ((char *) Val_hp (hp))
 
 // Refcount
-#define Refcnt_hd(hd)     ((int32_t)((hd) >> 32))
+#define Refcnt_hd(hd)     ((int32_t)((intnat)(hd) >> 32))
 #ifdef ARCH_BIG_ENDIAN
 #define Refcnt_val(val)   (((int32_t*)(val))[-2])      /* Also an l-value. */
 #else

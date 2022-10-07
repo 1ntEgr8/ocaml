@@ -354,12 +354,12 @@ ENDFUNCTION(G(caml_obj_rc_dup))
 /* r15: the dup argument; guaranteed pointer
    TODO: implement sticky range
 */   
-FUNCTION(G(caml_dup_checked))
+FUNCTION(G(caml_dup_atomic))
 CFI_STARTPROC
     lock    decl -4(%r15) 
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_dup_checked))
+ENDFUNCTION(G(caml_dup_atomic))
 
 /* r15 is the drop argument 
 */

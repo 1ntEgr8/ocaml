@@ -16,6 +16,11 @@
 #define rc_likely(x)       (x)
 #endif
 
+#define RC_STUCK          (INT32_MIN)                 /* 0x80000000 */
+#define RC_STICKY         (RC_STUCK + 0x10000000)     /* 0x90000000 */
+#define RC_STICKY_DROP    (RC_STICKY + 0x10000000)    /* 0xA0000000 */
+#define RC_SHARED_UNIQUE  (-1)
+
 mlsize_t *rc_alloc(mlsize_t num_bytes) {
   void *res = mi_malloc(num_bytes);
   if (res == NULL) {
@@ -35,7 +40,10 @@ static inline void rc_drop_checked( value v, int32_t rc ) {
     // free if this was the last reference
     rc_drop_free(v);
   }
-  else {
+  else if (rc <= RC_STICKY_DROP) {
+    // nothing
+  }
+  else {    
     // todo: atomic drop
     Refcnt_val(v) = rc - 1;
   }

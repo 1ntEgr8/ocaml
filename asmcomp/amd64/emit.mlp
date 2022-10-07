@@ -257,22 +257,28 @@ let emit_call_gc gc =
   def_label gc.gc_frame_lbl;
   I.jmp (label gc.gc_return_lbl)
 
+let rc_sticky = int (0x90000000)  (* RC_STICKY *)  
+
 let emit_dup_checked entry_lbl return_lbl dup_arg =
   def_label entry_lbl;
+  I.cmp rc_sticky r15d;        (* r15d < rc_sticky ? *)
+  I.jl  (label return_lbl);    
   I.mov dup_arg r15;
-  emit_call "caml_dup_checked"; (* must preserve the dup_arg register ! *)
+  emit_call "caml_dup_atomic"; (* must preserve the dup_arg register ! *)
   I.jmp (label return_lbl)
 
 let emit_drop_checked entry_lbl return_lbl drop_arg =
   def_label entry_lbl;
   let lbl_drop_atomic = new_label () in
-  I.inc  r15d;         (* increment back to test == 0 *)
-  I.mov  drop_arg r15; (* preserves flags *)
-  I.jl   (label lbl_drop_atomic);   
+  I.jne  (label lbl_drop_atomic);   
   (* assert: rc == 0, free the object *)
+  I.mov  drop_arg r15;
   emit_call "caml_drop_free";
-  I.jmp  (label return_lbl);
-  def_label lbl_drop_atomic;        
+  I.jmp  (label return_lbl);  
+  def_label lbl_drop_atomic;
+  I.cmp  rc_sticky r15d;         (* r15d < rc_sticky ? *)
+  I.jl   (label return_lbl);      
+  I.mov  drop_arg r15; 
   emit_call "caml_drop_atomic";  (* todo: inline ? *)
   I.jmp  (label return_lbl)
   
@@ -664,13 +670,14 @@ let emit_instr env fallthrough i =
       I.jne  (label lbl_drop_end);
       (* read the refcount and decrement *)
       I.mov  (mem64 NONE (-4) drop_reg) r15d;
-      I.dec  r15d;
+      I.cmp  (int 0) r15d;
       (* slow path if refcount was <= 0 (i.e. needs to be freed or atomically dropped *)
       let lbl_drop_checked = new_label() in
       let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end (Reg64 drop_reg) in
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
-      I.jl   (label lbl_drop_checked);
+      I.jle  (label lbl_drop_checked);
       (* fast path: write the updated refcount back into the header *)
+      I.dec  r15d;
       I.mov  r15d (mem64 NONE (-4) drop_reg);
       (* end *)
       def_label lbl_drop_end;  
