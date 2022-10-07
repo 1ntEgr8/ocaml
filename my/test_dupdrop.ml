@@ -2,9 +2,9 @@ open List
 
 let rec map xs f =
   match xs with
-  | x :: xx ->
-      my_dup x;
-      my_dup xx;
+  | x' :: xx' ->
+      let x = my_dup x' in
+      let xx = my_dup xx' in
       my_drop xs;
       (* my_dup f; *)
       (f x) :: (map xx f)
@@ -15,10 +15,10 @@ let rec map xs f =
 
 let rec sum_acc xs acc =
   match xs with
-  | x :: xx ->
-      my_dup x;
-      my_dup xx;
-      (* my_drop xs; *) (* x is not cached ! *)
+  | x' :: xx' ->
+      let x = my_dup x' in
+      let xx = my_dup xx' in
+      my_drop xs;  (* x is not cached ! *)
       sum_acc xx (x + acc)
   | [] -> 
       my_drop xs;

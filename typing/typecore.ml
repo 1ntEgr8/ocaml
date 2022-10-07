@@ -3982,15 +3982,18 @@ and type_expect_
            exp_attributes = sexp.pexp_attributes;
            exp_env = env }
   | Pexp_dup e ->
-      let ty = newgenvar () in
+      (* let ty = newgenvar () in *)
+      (*
       let to_unify = Predef.type_dup_t in
       with_explanation (fun () ->
         unify_exp_types loc env to_unify (generic_instance ty_expected));
       let arg = type_expect env e (mk_expected ty) in
+      *)
+      let arg = type_expect env e (mk_expected ty_expected) in
       re {
         exp_desc = Texp_dup arg;
         exp_loc = loc; exp_extra = [];
-        exp_type = instance ty_expected;
+        exp_type = arg.exp_type; (* instance ty_expected; *)
         exp_attributes = sexp.pexp_attributes;
         exp_env = env;
       }

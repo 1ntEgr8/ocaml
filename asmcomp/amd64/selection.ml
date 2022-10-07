@@ -88,7 +88,8 @@ let pseudoregs_for_operation op arg res =
   (* One-address unary operations: arg.(0) and res.(0) must be the same *)
   | Iintop_imm((Iadd|Isub|Imul|Iand|Ior|Ixor|Ilsl|Ilsr|Iasr), _)
   | Iabsf | Inegf
-  | Ispecific(Ibswap (32|64)) ->
+  | Ispecific(Ibswap (32|64))
+  | Idup ->
       (res, res)
   (* For xchg, args must be a register allowing access to high 8 bit register
      (rax, rbx, rcx or rdx). Keep it simple, just force the argument in rax. *)
