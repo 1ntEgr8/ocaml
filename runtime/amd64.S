@@ -405,10 +405,10 @@ ENDFUNCTION(G(caml_drop_free))
 */   
 FUNCTION(G(caml_drop_checked))
 CFI_STARTPROC
-    cmpl  %eax, $-1
-    jne   LBL(caml_drop_checked_atomic)
+    addl  $1, %eax
+    jnz   LBL(caml_drop_checked_atomic)
     /* drop children and free the object */
-    jmp   LBL(caml_drop_free)
+    jmp   G(caml_drop_free)
 
 LBL(caml_drop_checked_atomic):
     lock  incl -4(%r15)         /* todo: atomic drop correctly */

@@ -256,18 +256,16 @@ let emit_call_gc gc =
   def_label gc.gc_frame_lbl;
   I.jmp (label gc.gc_return_lbl)
 
-let emit_dup_checked entry_lbl return_lbl frame_lbl dup_arg =
+let emit_dup_checked entry_lbl return_lbl dup_arg =
   def_label entry_lbl;
-  I.mov dup_arg r15
+  I.mov dup_arg r15;
   emit_call "caml_dup_checked";
-  def_label frame_lbl;
   I.jmp (label return_lbl)
 
-let emit_drop_checked entry_lbl return_lbl frame_lbl drop_arg =
+let emit_drop_checked entry_lbl return_lbl drop_arg =
   def_label entry_lbl;
-  I.mov drop_arg r15
+  I.mov drop_arg r15;
   emit_call "caml_drop_checked";
-  def_label frame_lbl;
   I.jmp (label return_lbl)
   
 let emit_slowpath f =
@@ -624,20 +622,19 @@ let emit_instr env fallthrough i =
                (by default instructions get register arguments -- see `reload.ml`)
          we use eax to contain the 32-bit refcount
       *)
-      let dup_reg = arg64 i 0
+      let dup_reg = arg64 i 0 in
       let lbl_dup_end = new_label() in
       (* test if this is a value
          TODO: add parameter to Idup that tells if this is always a pointer in which case we can leave out this test *)
-      I.test (int 1) (Reg64 dup_reg);
+      I.test (int 1) (Reg8L dup_reg);
       I.jne  (label lbl_dup_end);
       (* read the refcount and increment *)
       I.mov  (mem32 NONE (-4) dup_reg) eax;
-      I.add  eax (int 1);
+      I.add  (int 1) eax;
       (* slow path if refcount was less than zero (i.e. needs atomic increment) *)
       let lbl_dup_checked = new_label() in
-      let lbl_dup_frame = record_frame_label env i.live (Dbg_alloc dbginfo) in
-      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end lbl_dup_frame (Reg64 dup_reg) in
-      env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites
+      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end (Reg64 dup_reg) in
+      env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
       I.jle  (label lbl_dup_checked);  (* flags are set by the add instruction *)
       (* fast path: write the updated refcount back into the header *)
       I.mov  eax (mem32 NONE (-4) (arg64 i 0));
@@ -651,20 +648,19 @@ let emit_instr env fallthrough i =
                 (by default instructions get register arguments -- see `reload.ml`)
           we use eax to contain the 32-bit refcount
       *)
-      let drop_reg = arg64 i 0
+      let drop_reg = arg64 i 0 in
       let lbl_drop_end = new_label() in
       (* test if this is a value
           TODO: add parameter to Idrop that tells if this is always a pointer in which case we can leave out this test *)
-      I.test (int 1) (Reg64 drop_reg);
+      I.test (int 1) (Reg8L drop_reg);
       I.jne  (label lbl_drop_end);
       (* read the refcount and decrement *)
       I.mov  (mem32 NONE (-4) drop_reg) eax;
-      I.sub  eax (int 1);
+      I.sub  (int 1) eax; 
       (* slow path if refcount was zero or negative (i.e. needs to be freed or atomically decremented) *)
       let lbl_drop_checked = new_label() in
-      let lbl_drop_frame = record_frame_label env i.live (Dbg_alloc dbginfo) in
-      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end lbl_drop_frame (Reg64 drop_reg) in
-      env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites
+      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end (Reg64 drop_reg) in
+      env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
       I.jl   (label lbl_drop_checked);  (* flags are set by the sub instruction *)
       (* fast path: write the updated refcount back into the header *)
       I.mov  eax (mem32 NONE (-4) (arg64 i 0));
