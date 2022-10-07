@@ -144,14 +144,16 @@ Spacetime profiling is not supported.
 /* Use NO_PROFINFO to debug problems with profinfo macros */
 #define NO_PROFINFO 0xff
 #define Hd_no_profinfo(hd) ((hd) & ~(PROFINFO_MASK << PROFINFO_SHIFT))
-#define Wosize_hd(hd) ((mlsize_t) (((Hd_no_profinfo(hd)) >> 10) & 0xFFFFF))
+#define Wosize_hd(hd) ((mlsize_t) (((uint32_t)(Hd_no_profinfo(hd))) >> 10))
 #define Profinfo_hd(hd) (Gen_profinfo_hd(PROFINFO_WIDTH, hd))
 #else
 #define NO_PROFINFO 0
-// #define Wosize_hd(hd) ((mlsize_t) (((hd) >> 10) & 0xFFFFF))
-#define Wosize_hd(hd) ((mlsize_t) ((((int32_t)(hd)) >> 10)))
+#define Wosize_hd(hd) ((mlsize_t) (((uint32_t)(hd)) >> 10))
 #define Profinfo_hd(hd) NO_PROFINFO
 #endif /* WITH_PROFINFO */
+
+// Refcount
+#define Refcnt_hd(hd) ((int32_t) (((hd) >> 32)))
 
 #define Hd_val(val) (((header_t *) (val)) [-1])        /* Also an l-value. */
 #define Hd_op(op) (Hd_val (op))                        /* Also an l-value. */

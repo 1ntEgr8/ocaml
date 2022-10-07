@@ -669,7 +669,7 @@ let emit_instr env fallthrough i =
       (* fast path: write the updated refcount back into the header *)
       I.mov  eax (mem32 NONE (-4) (arg64 i 0));
       (* end *)
-      def_label lbl_drop_end;
+      def_label lbl_drop_end;  
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
       I.mov (int n) r15 ;

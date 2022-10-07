@@ -781,13 +781,29 @@ $(expunge): compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma \
 partialclean::
 	rm -f $(expunge)
 
+MIMALLOC_OUT_DIR=out
+
+# mimalloc for memory management
+.PHONY: mimalloc
+mimalloc:
+	cd mimalloc; cmake -B$(MIMALLOC_OUT_DIR)
+	$(MAKE) -C mimalloc/$(MIMALLOC_OUT_DIR)
+clean::
+	$(MAKE) -C mimalloc/$(MIMALLOC_OUT_DIR) clean
+	rm -rf mimalloc/$(MIMALLOC_OUT_DIR)
+
+stdlib/libmimalloc.$(A): mimalloc
+	cp mimalloc/$(MIMALLOC_OUT_DIR)/libmimalloc.$(A) $@
+clean::
+	rm -f stdlib/libmimalloc.$(A)
+
 # The runtime system for the bytecode compiler
 
 $(SAK):
 	$(MAKE) -C runtime sak$(EXE)
 
 .PHONY: runtime
-runtime: stdlib/libcamlrun.$(A)
+runtime: stdlib/libcamlrun.$(A) stdlib/libmimalloc.$(A)
 
 ifeq "$(BOOTSTRAPPING_FLEXDLL)" "true"
 runtime: $(addprefix stdlib/flexdll/, $(FLEXDLL_OBJECTS))
@@ -821,7 +837,7 @@ alldepend: depend
 # The runtime system for the native-code compiler
 
 .PHONY: runtimeopt
-runtimeopt: stdlib/libasmrun.$(A)
+runtimeopt: stdlib/libasmrun.$(A) stdlib/libmimalloc.$(A)
 
 .PHONY: makeruntimeopt
 makeruntimeopt:

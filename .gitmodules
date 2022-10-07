@@ -1,3 +1,6 @@
 [submodule "flexdll"]
     path = flexdll
     url = https://github.com/alainfrisch/flexdll.git
+[submodule "mimalloc"]
+	path = mimalloc
+	url = https://github.com/microsoft/mimalloc

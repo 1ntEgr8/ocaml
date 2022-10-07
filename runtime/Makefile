@@ -347,14 +347,14 @@ ifneq "$(1)" "%"
 # don't use -MG and instead include $(BUILT_HEADERS) in the order only
 # dependencies to ensure that they exist before dependencies are computed.
 $(DEPDIR)/$(1).$(D): %.c | $(DEPDIR) $(BUILT_HEADERS)
-	$$(DEP_CC) $$(OC_CPPFLAGS) $$(CPPFLAGS) $$< -MT \
+	$$(DEP_CC) $$(OC_CPPFLAGS) $$(CPPFLAGS) -I../mimalloc/include $$< -MT \
 	  '$$*$(subst %,,$(1)).$(O)' -MF $$@
 endif # ifneq "$(1)" "%"
 $(1).$(O): $(2).c
 else
 $(1).$(O): $(2).c $(CONFIGURED_HEADERS) $(BUILT_HEADERS) $(RUNTIME_HEADERS)
 endif # ifneq "$(COMPUTE_DEPS)" "false"
-	$$(CC) -c $$(OC_CFLAGS) $$(CFLAGS) $$(OC_CPPFLAGS) $$(CPPFLAGS) \
+	$$(CC) -c $$(OC_CFLAGS) $$(CFLAGS) $$(OC_CPPFLAGS) $$(CPPFLAGS) -I../mimalloc/include \
 	  $$(OUTPUTOBJ)$$@ $$<
 endef
 
