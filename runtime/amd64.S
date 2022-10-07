@@ -380,7 +380,7 @@ CFI_STARTPROC
     movq    %r15, %rdi
 
     PREPARE_FOR_C_CALL
-    call    GCALL(rc_drop_free_rec)
+    call    GCALL(rc_drop_free)
     CLEANUP_AFTER_C_CALL
 
     /* Restore caller-saved registers */    

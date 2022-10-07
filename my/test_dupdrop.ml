@@ -9,7 +9,7 @@ let rec map xs f =
       (* my_dup f; *)
       (f x) :: (map xx f)
   | [] ->
-      (* my_drop xs; *)
+      my_drop xs;
       (* my_drop f; *)
       []
 

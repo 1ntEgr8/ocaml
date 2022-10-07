@@ -4,6 +4,18 @@
 #include <mimalloc.h>
 #include <assert.h>
 
+
+#if defined(__GNUC__) || defined(__clang__)
+#define rc_unlikely(x)     (__builtin_expect(!!(x),false))
+#define rc_likely(x)       (__builtin_expect(!!(x),true))
+#elif (defined(__cplusplus) && (__cplusplus >= 202002L)) || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#define rc_unlikely(x)     (x) [[unlikely]]
+#define rc_likely(x)       (x) [[likely]]
+#else
+#define rc_unlikely(x)     (x)
+#define rc_likely(x)       (x)
+#endif
+
 mlsize_t *rc_alloc(mlsize_t num_bytes) {
   void *res = mi_malloc(num_bytes);
   if (res == NULL) {
@@ -13,27 +25,15 @@ mlsize_t *rc_alloc(mlsize_t num_bytes) {
   return (mlsize_t*) res;
 }
 
-static void rc_drop( value v );
+extern void rc_drop_free( value v );
 
-// Recursively drop the children and free the object.
-void rc_drop_free_rec( value v ) {
-  assert(Is_block(v));
-  if (Tag_val(v) < No_scan_tag) {
-    mlsize_t wsize = Wosize_val(v);
-    for(mlsize_t i = 0; i < wsize; i++) {
-      rc_drop(Field(v,i));
-    }
-  }
-  mi_free(Hp_val(v));
-}
-
-// drop_checked is called for objects whose reference count is 0 (unique) or negative (atomic)
+// `drop_checked` is called for objects whose reference count is 0 (unique) or negative (atomic)
 // noinline
-static void rc_drop_checked( value v, int32_t rc ) {
+static inline void rc_drop_checked( value v, int32_t rc ) {
   assert(Is_block(v));
-  if (rc == 0) {
+  if rc_likely(rc == 0) {
     // free if this was the last reference
-    rc_drop_free_rec(v);
+    rc_drop_free(v);
   }
   else {
     // todo: atomic drop
@@ -41,16 +41,38 @@ static void rc_drop_checked( value v, int32_t rc ) {
   }
 }
 
-// drop a value
+// Drop a value
 static inline void rc_drop( value v ) {
   int32_t rc;
   if (Is_long(v)) return;
   rc = Refcnt_val(v);
-  if (rc <= 0) {
+  if rc_likely(rc <= 0) {
     rc_drop_checked(v,rc);
   }
   else {
     Refcnt_val(v) = rc - 1;
   }
 }
+
+// Recursively drop the children and free the object. `v` must be a pointer.
+void rc_drop_free( value v ) {
+  tag_t t;
+  assert(Is_block(v));
+  t = Tag_val(v);
+  if rc_likely(t < No_scan_tag) {
+    mlsize_t first_field;
+    mlsize_t wsize = Wosize_val(v);
+    if rc_unlikely(t == Closure_tag) {
+      first_field = Start_env_closinfo(Closinfo_val(v));
+    } else {
+      first_field = 0;
+    }
+    for(mlsize_t i = first_field; i < wsize; i++) {
+      rc_drop(Field(v,i));
+    }
+  }
+  mi_free(Hp_val(v));
+}
+
+
 
