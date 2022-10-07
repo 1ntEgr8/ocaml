@@ -52,6 +52,7 @@ val ecx: arg
 val edx: arg
 val ebp: arg
 val esp: arg
+val r15d: arg
 val st0: arg
 val st1: arg
 

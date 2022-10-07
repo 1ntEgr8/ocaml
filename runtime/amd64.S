@@ -352,36 +352,35 @@ CFI_ENDPROC
 ENDFUNCTION(G(caml_obj_rc_dup))
 
 /* r15: the dup argument; guaranteed pointer
-   eax: (stale) ref count; guaranteed < 0
    TODO: implement sticky range
 */   
 FUNCTION(G(caml_dup_checked))
 CFI_STARTPROC
-    lock    decl -4(%r15)      /* todo: handle overflow */
+    lock    decl -4(%r15) 
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_dup_checked))
 
-
+/* r15 is the drop argument 
+*/
 FUNCTION(G(caml_drop_free))
 CFI_STARTPROC
     /* Save caller-saved registers */
-    /* pushq   %rax; CFI_ADJUST (8); */ 
+    pushq   %rax; CFI_ADJUST (8); 
     pushq   %rcx; CFI_ADJUST (8);
     pushq   %rdx; CFI_ADJUST (8);
     pushq   %rsi; CFI_ADJUST (8);
-    pushq   %rdi; CFI_ADJUST (8);
+    pushq   %rdi; CFI_ADJUST (8); 
     pushq   %r8; CFI_ADJUST (8);
     pushq   %r9; CFI_ADJUST (8);
     pushq   %r10; CFI_ADJUST (8);
     pushq   %r11; CFI_ADJUST (8);
     
-    /* Pass argument into C */
+    /* Make the call; rdi contains the first argument */
     movq    %r15, %rdi
 
-    /* Make the call */
     PREPARE_FOR_C_CALL
-    call    GCALL(rc_drop_free)
+    call    GCALL(rc_drop_free_rec)
     CLEANUP_AFTER_C_CALL
 
     /* Restore caller-saved registers */    
@@ -389,32 +388,28 @@ CFI_STARTPROC
     popq    %r10; CFI_ADJUST (-8);
     popq    %r9; CFI_ADJUST (-8);
     popq    %r8; CFI_ADJUST (-8);
-    popq    %rdi; CFI_ADJUST (-8);
+    popq    %rdi; CFI_ADJUST (-8); 
     popq    %rsi; CFI_ADJUST (-8);
     popq    %rdx; CFI_ADJUST (-8);
     popq    %rcx; CFI_ADJUST (-8);
-    /* popq    %rax; CFI_ADJUST (-8); */
+    popq    %rax; CFI_ADJUST (-8);
+
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_drop_free))
 
 
 /* r15: the drop argument; guaranteed pointer
-   eax: (stale) decremented ref count; guaranteed < 0
    TODO: implement sticky range
 */   
-FUNCTION(G(caml_drop_checked))
+FUNCTION(G(caml_drop_atomic))
 CFI_STARTPROC
-    addl  $1, %eax
-    jnz   LBL(caml_drop_checked_atomic)
-    /* drop children and free the object */
-    jmp   G(caml_drop_free)
-
-LBL(caml_drop_checked_atomic):
-    lock  incl -4(%r15)         /* todo: atomic drop correctly */
+    lock  incl -4(%r15)         /* todo: atomic drop correctly with sticky range */
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_drop_checked))
+ENDFUNCTION(G(caml_drop_atomic))
+
+
 
 /* Decrements the reference count of an OCaml value
 

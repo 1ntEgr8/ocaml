@@ -63,6 +63,7 @@ let ecx = Reg32 RCX
 let edx = Reg32 RDX
 let ebp = Reg32 RBP
 let esp = Reg32 RSP
+let r15d = Reg32 R15
 let st0 = Regf (ST 0)
 let st1 = Regf (ST 1)
 

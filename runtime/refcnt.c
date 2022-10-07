@@ -13,8 +13,19 @@ mlsize_t *rc_alloc(mlsize_t num_bytes) {
   return (mlsize_t*) res;
 }
 
+static void rc_drop( value v );
+
 // Recursively drop the children and free the object.
-void rc_drop_free( value v );
+void rc_drop_free_rec( value v ) {
+  assert(Is_block(v));
+  if (Tag_val(v) < No_scan_tag) {
+    mlsize_t wsize = Wosize_val(v);
+    for(mlsize_t i = 0; i < wsize; i++) {
+      rc_drop(Field(v,i));
+    }
+  }
+  mi_free(Hp_val(v));
+}
 
 // drop_checked is called for objects whose reference count is 0 (unique) or negative (atomic)
 // noinline
@@ -22,7 +33,7 @@ static void rc_drop_checked( value v, int32_t rc ) {
   assert(Is_block(v));
   if (rc == 0) {
     // free if this was the last reference
-    rc_drop_free(v);
+    rc_drop_free_rec(v);
   }
   else {
     // todo: atomic drop
@@ -43,14 +54,3 @@ static inline void rc_drop( value v ) {
   }
 }
 
-// drop the children and free the object
-void rc_drop_free( value v ) {
-  assert(Is_block(v));
-  if (Tag_val(v) < No_scan_tag) {
-    mlsize_t wsize = Wosize_val(v);
-    for(mlsize_t i = 0; i < wsize; i++) {
-      rc_drop(Field(v,i));
-    }
-  }
-  mi_free(&Field(v,-1));
-}

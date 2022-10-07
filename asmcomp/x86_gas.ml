@@ -98,12 +98,18 @@ let suf arg =
   | NONE -> ""
   | OWORD | NEAR | PROC -> assert false
 
+let suf2 x y =
+  match typeof x with
+  | NONE -> suf y
+  | _    -> suf x  
+
 let i0 b s = bprintf b "\t%s" s
 let i1 b s x = bprintf b "\t%s\t%a" s arg x
 let i1_s b s x = bprintf b "\t%s%s\t%a" s (suf x) arg x
 let i2 b s x y = bprintf b "\t%s\t%a, %a" s arg x arg y
 let i2_s b s x y = bprintf b "\t%s%s\t%a, %a" s (suf y) arg x arg y
 let i2_ss b s x y = bprintf b "\t%s%s%s\t%a, %a" s (suf x) (suf y) arg x arg y
+let i2_s2 b s x y = bprintf b "\t%s%s\t%a, %a" s (suf2 y x) arg x arg y
 
 let i1_call_jmp b s = function
   (* this is the encoding of jump labels: don't use * *)
@@ -187,7 +193,7 @@ let print_instr b = function
       i2 b "movabsq" arg1 arg2
   | MOV ((Sym _ as arg1), (Reg64 _ as arg2)) when windows ->
       i2 b "movabsq" arg1 arg2
-  | MOV (arg1, arg2) -> i2_s b "mov" arg1 arg2
+  | MOV (arg1, arg2) -> i2_s2 b "mov" arg1 arg2
   | MOVAPD (arg1, arg2) -> i2 b "movapd" arg1 arg2
   | MOVLPD (arg1, arg2) -> i2 b "movlpd" arg1 arg2
   | MOVSD (arg1, arg2) -> i2 b "movsd" arg1 arg2
