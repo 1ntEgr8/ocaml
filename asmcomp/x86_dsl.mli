@@ -37,6 +37,7 @@ val ah: arg
 val cl: arg
 val ax: arg
 val rax: arg
+val rbx: arg
 val rdi: arg
 val r10: arg
 val r11: arg
@@ -52,6 +53,8 @@ val ecx: arg
 val edx: arg
 val ebp: arg
 val esp: arg
+val r10d: arg
+val r11d: arg
 val r15d: arg
 val st0: arg
 val st1: arg

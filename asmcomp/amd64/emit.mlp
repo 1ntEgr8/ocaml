@@ -259,34 +259,35 @@ let emit_call_gc gc =
 
 let rc_sticky = int (0x90000000)  (* RC_STICKY *)  
 
-let emit_dup_checked entry_lbl return_lbl dup_arg =
+let emit_dup_checked entry_lbl return_lbl dup_arg rc_reg =
   def_label entry_lbl;
-  I.cmp rc_sticky r15d;        (* r15d < rc_sticky ? *)
+  I.cmp rc_sticky rc_reg;      (* rc_reg < rc_sticky ? *)
   I.jl  (label return_lbl);    
-  I.mov dup_arg r15;
+  I.mov dup_arg r11;
   emit_call "caml_dup_atomic"; (* must preserve the dup_arg register ! *)
   I.jmp (label return_lbl)
 
-let emit_drop_checked entry_lbl return_lbl drop_arg =
+let emit_drop_checked entry_lbl return_lbl drop_arg rc_reg =
   def_label entry_lbl;
   let lbl_drop_atomic = new_label () in
   I.jne  (label lbl_drop_atomic);   
   (* assert: rc == 0, free the object *)
-  I.mov  drop_arg r15;
+  I.mov  drop_arg r11;
   emit_call "caml_drop_free";
   I.jmp  (label return_lbl);  
   def_label lbl_drop_atomic;
-  I.cmp  rc_sticky r15d;         (* r15d < rc_sticky ? *)
+  I.cmp  rc_sticky rc_reg;       (* rc_reg < rc_sticky ? *)
   I.jl   (label return_lbl);      
-  I.mov  drop_arg r15; 
+  I.mov  drop_arg r11; 
   emit_call "caml_drop_atomic";  (* todo: inline ? *)
   I.jmp  (label return_lbl)
 
-let emit_alloc_generic entry_lbl return_lbl n =
+let emit_alloc_generic entry_lbl return_lbl n res_reg =
   (* assert n % 8 == 0 *)
   def_label entry_lbl;
-  I.mov (int n) r15;
+  I.mov (int n) r11;
   emit_call "caml_alloc_generic";
+  I.lea (mem64 NONE 8 R11) (Reg64 res_reg);
   I.jmp (label return_lbl)
 
 let emit_slowpath f =
@@ -577,7 +578,8 @@ let emit_instr env fallthrough i =
              function via a regular call, and restores r15 itself, thus avoiding
              the code size increase. *)
 
-          I.mov (domain_field Domainstate.Domain_young_ptr) r15
+          (* I.mov (domain_field Domainstate.Domain_young_ptr) r15 *)
+          I.mov (mem64 NONE 0 R14) r15
         end
       end else begin
         emit_call func
@@ -633,11 +635,13 @@ let emit_instr env fallthrough i =
      This will give us knowledge of the type of the lambda.
      If the lambda is a long, then no need to emit anything :)
   *)
+
   (*
   | Lop(Idup) ->
       I.mov (arg i 0) rdi;
       emit_call "caml_obj_rc_dup"
-  *)      
+  *) 
+
   | Lop(Idup) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
                (by default instructions get register arguments -- see `reload.ml`)
@@ -645,25 +649,31 @@ let emit_instr env fallthrough i =
       *)
       let dup_reg = res64 i 0 in (* not `arg64 i 0` since in `selection.ml:pseudoregs_for_operation` we force the result to be the argument register *)
       let lbl_dup_end = new_label() in
+      let push_tmp = (dup_reg == R11) in
+      let tmp_reg = if (push_tmp) then r10d else r11d in
+      if (push_tmp) then I.push r10 else ();
       (* test if this is a value
-         TODO: add parameter to Idup that tells if this is always a pointer in which case we can leave out this test *)
+         TODO: add parameter to Idup that tells if this is always a pointer in which case we can leave out this test *)      
       I.test (int 1) (Reg8L dup_reg); 
       I.jne  (label lbl_dup_end);
       (* read the refcount and increment *)
-      I.mov  (mem64 NONE (-4) dup_reg) r15d;
-      I.inc  r15d;
+      I.mov  (mem64 NONE (-4) dup_reg) tmp_reg;
+      I.inc  tmp_reg;
       (* slow path if refcount was less than zero (i.e. needs atomic increment) *)
       let lbl_dup_checked = new_label() in
-      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end (Reg64 dup_reg) in
+      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end (Reg64 dup_reg) tmp_reg in
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
       I.jle  (label lbl_dup_checked);  (* flags are set by the add instruction *)
       (* fast path: write the updated refcount back into the header *)
-      I.mov  r15d (mem64 NONE (-4) dup_reg);
+      I.mov  tmp_reg (mem64 NONE (-4) dup_reg);
       (* end *)
       def_label lbl_dup_end;      
+      if (push_tmp) then I.pop r10 else ()
+  
   (*| Lop(Idrop) -> 
       I.mov (arg i 0) rdi;
       emit_call "caml_obj_rc_drop" *)
+
   | Lop(Idrop) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
                 (by default instructions get register arguments -- see `reload.ml`)
@@ -671,48 +681,54 @@ let emit_instr env fallthrough i =
       *)
       let drop_reg = arg64 i 0 in
       let lbl_drop_end = new_label() in
+      let push_tmp = (drop_reg == R11) in
+      let tmp_reg = if (push_tmp) then r10d else r11d in
+      if (push_tmp) then I.push r10 else ();
       (* test if this is a value
           TODO: add parameter to Idrop that tells if this is always a pointer in which case we can leave out this test *)
       I.test (int 1) (Reg8L drop_reg);
       I.jne  (label lbl_drop_end);
       (* read the refcount and decrement *)
-      I.mov  (mem64 NONE (-4) drop_reg) r15d;
-      I.cmp  (int 0) r15d;
+      I.mov  (mem64 NONE (-4) drop_reg) tmp_reg;
+      I.cmp  (int 0) tmp_reg;
       (* slow path if refcount was <= 0 (i.e. needs to be freed or atomically dropped *)
       let lbl_drop_checked = new_label() in
-      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end (Reg64 drop_reg) in
+      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end (Reg64 drop_reg) tmp_reg in
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
       I.jle  (label lbl_drop_checked);
       (* fast path: write the updated refcount back into the header *)
-      I.dec  r15d;
-      I.mov  r15d (mem64 NONE (-4) drop_reg);
+      I.dec  tmp_reg;
+      I.mov  tmp_reg (mem64 NONE (-4) drop_reg);
       (* end *)
       def_label lbl_drop_end;  
+      if (push_tmp) then I.pop r10 else ()
+
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
       if (n <= 1024) then begin
         let n = ((n+7) / 8) * 8 in
+        let res_reg = res64 i 0 in       
         let lbl_alloc_end = new_label() in
         let lbl_alloc_generic = new_label () in
-        let slowpath () = emit_alloc_generic lbl_alloc_generic lbl_alloc_end n in
+        let slowpath () = emit_alloc_generic lbl_alloc_generic lbl_alloc_end n res_reg in
         env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
-        I.mov  (mem64 NONE 0 R14) r11;      (* r11 = heap = Caml_state(mi_heap)  todo: reserve a register to point to mi_heap? *)
-        let idx = 8 + n in                 
-        I.mov  (mem64 NONE idx R11) r10;    (* r10 = page = heap->pages_free_direct[n/8] *)
-        I.mov  (mem64 NONE 16 R10) r11;     (* r11 = block = page->free *)        
-        I.test r11 r11;                     (* if (block==null) malloc_generic(n) *)
+        let idx = 8 + n in        
+        (* todo: this goes wrong if res_reg is R11 or R10 *)
+        I.mov  (mem64 NONE idx R15) r11;              (* r11 = page = heap->pages_free_direct[n/8] *)
+        I.mov  (mem64 NONE 16 R11) (Reg64 res_reg);   (* res = block = page->free *)        
+        I.test (Reg64 res_reg) (Reg64 res_reg);       (* if (block==null) malloc_generic(n) *)
         I.je   (label lbl_alloc_generic);
-        I.add  (int 1) (mem64 NONE 24 R10); (* page->used++  *)
-        I.mov  (mem64 NONE 0 R11) r15;      (* next = *block *)
-        I.mov  r15 (mem64 NONE 16 R10);     (* page->free = next *)
-        def_label lbl_alloc_end;
-        I.lea  (mem64 NONE 8 R11) (res i 0) (* res = block+8 *)
+        I.add  (int 1) (mem64 NONE 24 R11);     (* page->used++  *)
+        I.mov  (mem64 NONE 0 res_reg) r10;      (* next = *block *)
+        I.mov  r10 (mem64 NONE 16 R11);         (* page->free = next *)
+        I.lea  (mem64 NONE 8 res_reg) (Reg64 res_reg); (* res = block+8 *)
+        def_label lbl_alloc_end
       end
       else begin
-        I.mov (int n) r15 ;
-        emit_call "caml_rc_alloc" ;
+        I.mov (int n) r11;
+        emit_call "caml_rc_alloc";
         record_frame env i.live (Dbg_alloc dbginfo) ;
-        I.lea (mem64 NONE 8 R15) (res i 0);
+        I.lea (mem64 NONE 8 R11) (res i 0);
       end
   (*
   | Lop(Ialloc { bytes = n; dbginfo }) ->
