@@ -660,7 +660,10 @@ let get_tag ptr dbg =
         [Cop(Cadda, [ptr; Cconst_int(tag_offset, dbg)], dbg)], dbg)
 
 let get_size ptr dbg =
-  Cop(Clsr, [get_header_without_profinfo ptr dbg; Cconst_int (10, dbg)], dbg)
+  Cop(Cand,
+      [Cop(Clsr, [get_header_without_profinfo ptr dbg
+                 ;Cconst_int (10, dbg)], dbg)
+      ;Cconst_int (0xFFFFF,dbg)], dbg)
 
 (* Array indexing *)
 
@@ -2525,7 +2528,7 @@ let cdefine_symbol (symb, (global: Cmmgen_state.is_global)) =
 let emit_block symb white_header cont =
   (* Headers for structured constants must be marked black in case we
      are in no-naked-pointers mode.  See [caml_darken]. *)
-  let black_header = Nativeint.logor (Nativeint.logor white_header caml_black) 0n (* rc_static *) in
+  let black_header = Nativeint.logor (Nativeint.logor white_header caml_black) rc_static  in
   Cint black_header :: cdefine_symbol symb @ cont
 
 let emit_string_constant_fields s cont =
