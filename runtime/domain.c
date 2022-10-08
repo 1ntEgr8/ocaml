@@ -16,6 +16,7 @@
 
 #define CAML_INTERNALS
 
+#include <mimalloc.h>
 #include "caml/domain_state.h"
 #include "caml/memory.h"
 
@@ -31,6 +32,7 @@ void caml_init_domain ()
   if (Caml_state == NULL)
     caml_fatal_error ("cannot initialize domain state");
 
+  Caml_state->mi_heap = NULL;
   Caml_state->young_limit = NULL;
   Caml_state->exception_pointer = NULL;
 

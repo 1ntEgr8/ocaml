@@ -786,7 +786,7 @@ MIMALLOC_OUT_DIR=out
 # mimalloc for memory management
 .PHONY: mimalloc
 mimalloc:
-	cd mimalloc; cmake -B$(MIMALLOC_OUT_DIR) -DMI_OVERRIDE=OFF
+	cd mimalloc; cmake -B$(MIMALLOC_OUT_DIR) -DMI_OVERRIDE=OFF -DCMAKE_BUILD_TYPE=Release
 	$(MAKE) -C mimalloc/$(MIMALLOC_OUT_DIR)
 clean::
 	$(MAKE) -C mimalloc/$(MIMALLOC_OUT_DIR) clean

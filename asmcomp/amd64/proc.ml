@@ -308,7 +308,7 @@ let destroyed_at_alloc_or_poll =
   if X86_proc.use_plt then
     destroyed_by_plt_stub
   else
-    [| r11 |]
+    [| r10 ; r11 |]
 
 let destroyed_at_oper = function
     Iop(Icall_ind | Icall_imm _ | Iextcall { alloc = true; }) ->

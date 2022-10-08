@@ -281,7 +281,14 @@ let emit_drop_checked entry_lbl return_lbl drop_arg =
   I.mov  drop_arg r15; 
   emit_call "caml_drop_atomic";  (* todo: inline ? *)
   I.jmp  (label return_lbl)
-  
+
+let emit_alloc_generic entry_lbl return_lbl n =
+  (* assert n % 8 == 0 *)
+  def_label entry_lbl;
+  I.mov (int n) r15;
+  emit_call "caml_alloc_generic";
+  I.jmp (label return_lbl)
+
 let emit_slowpath f =
   f ()  
 
@@ -683,10 +690,30 @@ let emit_instr env fallthrough i =
       def_label lbl_drop_end;  
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
-      I.mov (int n) r15 ;
-      emit_call "caml_rc_alloc" ;
-      record_frame env i.live (Dbg_alloc dbginfo) ;
-      I.lea (mem64 NONE 8 R15) (res i 0);
+      if (n <= 1024) then begin
+        let n = ((n+7) / 8) * 8 in
+        let lbl_alloc_end = new_label() in
+        let lbl_alloc_generic = new_label () in
+        let slowpath () = emit_alloc_generic lbl_alloc_generic lbl_alloc_end n in
+        env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
+        I.mov  (mem64 NONE 0 R14) r11;      (* r11 = heap = Caml_state(mi_heap)  todo: reserve a register to point to mi_heap? *)
+        let idx = 8 + n in                 
+        I.mov  (mem64 NONE idx R11) r10;    (* r10 = page = heap->pages_free_direct[n/8] *)
+        I.mov  (mem64 NONE 16 R10) r11;     (* r11 = block = page->free *)        
+        I.test r11 r11;                     (* if (block==null) malloc_generic(n) *)
+        I.je   (label lbl_alloc_generic);
+        I.add  (int 1) (mem64 NONE 24 R10); (* page->used++  *)
+        I.mov  (mem64 NONE 0 R11) r15;      (* next = *block *)
+        I.mov  r15 (mem64 NONE 16 R10);     (* page->free = next *)
+        def_label lbl_alloc_end;
+        I.lea  (mem64 NONE 8 R11) (res i 0) (* res = block+8 *)
+      end
+      else begin
+        I.mov (int n) r15 ;
+        emit_call "caml_rc_alloc" ;
+        record_frame env i.live (Dbg_alloc dbginfo) ;
+        I.lea (mem64 NONE 8 R15) (res i 0);
+      end
   (*
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       if env.f.fun_fast then begin

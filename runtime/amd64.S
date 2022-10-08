@@ -361,6 +361,18 @@ CFI_STARTPROC
 CFI_ENDPROC
 ENDFUNCTION(G(caml_dup_atomic))
 
+/* r15: the drop argument; guaranteed pointer
+   TODO: implement sticky range
+*/   
+FUNCTION(G(caml_drop_atomic))
+CFI_STARTPROC
+    lock  incl -4(%r15)         /* todo: atomic drop correctly with sticky range */
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_drop_atomic))
+
+
+
 /* r15 is the drop argument 
 */
 FUNCTION(G(caml_drop_free))
@@ -398,60 +410,48 @@ CFI_STARTPROC
 CFI_ENDPROC
 ENDFUNCTION(G(caml_drop_free))
 
-
-/* r15: the drop argument; guaranteed pointer
-   TODO: implement sticky range
-*/   
-FUNCTION(G(caml_drop_atomic))
-CFI_STARTPROC
-    lock  incl -4(%r15)         /* todo: atomic drop correctly with sticky range */
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_drop_atomic))
-
-
-
-/* Decrements the reference count of an OCaml value
-
-  Argument(s): %rdi = value_ptr
-  Destroys: %rax
-  Pseudocode:
-  ```c
-  void checked_drop(struct value *value_ptr) {
-    // TODO recursively free child
-    // TODO free value_ptr
-    // TODO handle sticky case
-  }
-
-  void drop(struct value *value_ptr) {
-    if (Header(value_ptr) & 1 == 0) {
-      rc = Header(value_ptr).refcount;
-      if (rc <= 0) {
-        checked_dup(value_ptr);
-      } else {
-        Header(value_ptr).refcount = rc - 1;
-      }
-    }
-  }
-  ```
+/* r15 is the allocation size
 */
-FUNCTION(G(caml_obj_rc_drop))
+FUNCTION(G(caml_alloc_generic))
 CFI_STARTPROC
-    /* check if block */
-    testb   $1, %dil
-    jne     LBL(caml_obj_rc_drop_end)
-    movl    -4(%rdi), %eax
-    testl   %eax, %eax
-    jle     LBL(caml_obj_rc_checked_drop)
-    decl    %eax
-    movl    %eax, -4(%rdi)
-LBL(caml_obj_rc_drop_end):
-    ret
-LBL(caml_obj_rc_checked_drop):
-    /* TODO */
+    /* Save caller-saved registers */
+    pushq   %rax; CFI_ADJUST (8); 
+    pushq   %rcx; CFI_ADJUST (8); 
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    pushq   %rdi; CFI_ADJUST (8); 
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    /*
+    pushq   %r10; CFI_ADJUST (8);
+    pushq   %r11; CFI_ADJUST (8);
+    */
+    
+    /* Make the call; rdi = heap, rsi = size */
+    movq    Caml_state(mi_heap), %rdi
+    movq    %r15, %rsi
+    
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_mi_heap_alloc)   /* rax has the result */
+    CLEANUP_AFTER_C_CALL
+    movq    %rax, %r11
+
+    /* Restore caller-saved registers */    
+    /*
+    popq    %r11; CFI_ADJUST (-8);
+    popq    %r10; CFI_ADJUST (-8);
+    */
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    popq    %rdi; CFI_ADJUST (-8); 
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);    
+    popq    %rcx; CFI_ADJUST (-8); 
+    popq    %rax; CFI_ADJUST (-8); 
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_obj_rc_drop))
+ENDFUNCTION(G(caml_alloc_generic))
+
 
 FUNCTION(G(caml_rc_alloc))
 CFI_STARTPROC
@@ -463,8 +463,10 @@ CFI_STARTPROC
     pushq   %rdi; CFI_ADJUST (8);
     pushq   %r8; CFI_ADJUST (8);
     pushq   %r9; CFI_ADJUST (8);
+    /*
     pushq   %r10; CFI_ADJUST (8);
     pushq   %r11; CFI_ADJUST (8);
+    */
     subq    $(16*8), %rsp; CFI_ADJUST (16*8);
     movsd   %xmm0, 0*8(%rsp)
     movsd   %xmm1, 1*8(%rsp)
@@ -513,8 +515,10 @@ CFI_STARTPROC
     movsd   15*8(%rsp), %xmm15
     addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
 
+    /*
     popq    %r11; CFI_ADJUST (-8);
     popq    %r10; CFI_ADJUST (-8);
+    */
     popq    %r9; CFI_ADJUST (-8);
     popq    %r8; CFI_ADJUST (-8);
     popq    %rdi; CFI_ADJUST (-8);
@@ -703,6 +707,9 @@ LBL(caml_start_program):
         pushq   Caml_state(gc_regs); CFI_ADJUST(8)
         pushq   Caml_state(last_return_address); CFI_ADJUST(8)
         pushq   Caml_state(bottom_of_stack); CFI_ADJUST(8)
+    /* setup mi_heap */
+        call    G(mi_heap_get_default)
+        movq    %rax, Caml_state(mi_heap)
     /* Setup alloc ptr */
         movq    Caml_state(young_ptr), %r15
     /* Build an exception handler */

@@ -103,6 +103,7 @@ extern void caml_install_invalid_parameter_handler();
 
 #endif
 
+
 value caml_startup_common(char_os **argv, int pooling)
 {
   char_os * exe_name, * proc_self_exe;

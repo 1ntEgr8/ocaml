@@ -21,13 +21,17 @@
 #define RC_STICKY_DROP    (RC_STICKY + 0x10000000)    /* 0xA0000000 */
 #define RC_SHARED_UNIQUE  (-1)
 
-mlsize_t *rc_alloc(mlsize_t num_bytes) {
+void* rc_alloc(mlsize_t num_bytes) {
   void *res = mi_malloc(num_bytes);
   if (res == NULL) {
     fprintf(stderr, "rc: malloc returned null\n");
     exit(-1);
   }
-  return (mlsize_t*) res;
+  return res;
+}
+
+void* rc_mi_heap_alloc( mi_heap_t* heap, mlsize_t n ) {
+  return mi_heap_malloc(heap, n);
 }
 
 extern void rc_drop_free( value v );
