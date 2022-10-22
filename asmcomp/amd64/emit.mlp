@@ -657,7 +657,7 @@ let emit_instr env fallthrough i =
       I.test (int 1) (Reg8L dup_reg); 
       I.jne  (label lbl_dup_end);
       (* read the refcount and increment *)
-      I.mov  (mem64 NONE (-4) dup_reg) tmp_reg;
+      I.mov  (mem64 DWORD (-4) dup_reg) tmp_reg;
       I.inc  tmp_reg;
       (* slow path if refcount was less than zero (i.e. needs atomic increment) *)
       let lbl_dup_checked = new_label() in
@@ -665,7 +665,7 @@ let emit_instr env fallthrough i =
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
       I.jle  (label lbl_dup_checked);  (* flags are set by the add instruction *)
       (* fast path: write the updated refcount back into the header *)
-      I.mov  tmp_reg (mem64 NONE (-4) dup_reg);
+      I.mov  tmp_reg (mem64 DWORD (-4) dup_reg);
       (* end *)
       def_label lbl_dup_end;      
       if (push_tmp) then I.pop r10 else ()
@@ -689,7 +689,7 @@ let emit_instr env fallthrough i =
       I.test (int 1) (Reg8L drop_reg);
       I.jne  (label lbl_drop_end);
       (* read the refcount and decrement *)
-      I.mov  (mem64 NONE (-4) drop_reg) tmp_reg;
+      I.mov  (mem64 DWORD (-4) drop_reg) tmp_reg;
       I.cmp  (int 0) tmp_reg;
       (* slow path if refcount was <= 0 (i.e. needs to be freed or atomically dropped *)
       let lbl_drop_checked = new_label() in
@@ -698,7 +698,7 @@ let emit_instr env fallthrough i =
       I.jle  (label lbl_drop_checked);
       (* fast path: write the updated refcount back into the header *)
       I.dec  tmp_reg;
-      I.mov  tmp_reg (mem64 NONE (-4) drop_reg);
+      I.mov  tmp_reg (mem64 DWORD (-4) drop_reg);
       (* end *)
       def_label lbl_drop_end;  
       if (push_tmp) then I.pop r10 else ()
@@ -714,11 +714,12 @@ let emit_instr env fallthrough i =
         env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
         let idx = 8 + n in        
         (* todo: this goes wrong if res_reg is R11 or R10 *)
+        if(res_reg == R11 && res_reg == R10) then Printf.printf("ouch!\n");
         I.mov  (mem64 NONE idx R15) r11;              (* r11 = page = heap->pages_free_direct[n/8] *)
         I.mov  (mem64 NONE 16 R11) (Reg64 res_reg);   (* res = block = page->free *)        
         I.test (Reg64 res_reg) (Reg64 res_reg);       (* if (block==null) malloc_generic(n) *)
         I.je   (label lbl_alloc_generic);
-        I.add  (int 1) (mem64 NONE 24 R11);     (* page->used++  *)
+        I.inc  (mem64 DWORD 24 R11);             (* page->used++  *)
         I.mov  (mem64 NONE 0 res_reg) r10;      (* next = *block *)
         I.mov  r10 (mem64 NONE 16 R11);         (* page->free = next *)
         I.lea  (mem64 NONE 8 res_reg) (Reg64 res_reg); (* res = block+8 *)

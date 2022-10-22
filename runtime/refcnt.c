@@ -70,12 +70,17 @@ static inline void rc_drop( value v ) {
 void rc_drop_free( value v ) {
   tag_t t;
   assert(Is_block(v));
+  if (!Is_block(v)) printf("ouchie\n");
   t = Tag_val(v);
   if rc_likely(t < No_scan_tag) {
     mlsize_t first_field;
     mlsize_t wsize = Wosize_val(v);
     if rc_unlikely(t == Closure_tag) {
       first_field = Start_env_closinfo(Closinfo_val(v));
+    } else if rc_unlikely(t == Infix_tag) {
+      assert(false);
+      printf("encountered infix block\n");
+      first_field = wsize;
     } else {
       first_field = 0;
     }
