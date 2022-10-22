@@ -715,14 +715,14 @@ let emit_instr env fallthrough i =
         let idx = 8 + n in        
         (* todo: this goes wrong if res_reg is R11 or R10 *)
         if(res_reg == R11 && res_reg == R10) then Printf.printf("ouch!\n");
-        I.mov  (mem64 NONE idx R15) r11;              (* r11 = page = heap->pages_free_direct[n/8] *)
-        I.mov  (mem64 NONE 16 R11) (Reg64 res_reg);   (* res = block = page->free *)        
-        I.test (Reg64 res_reg) (Reg64 res_reg);       (* if (block==null) malloc_generic(n) *)
+        I.mov  (mem64 NONE idx R15) r11;                (* r11 = page = heap->pages_free_direct[n/8] *)
+        I.mov  (mem64 NONE 16 R11) (Reg64 res_reg);     (* res = block = page->free *)        
+        I.test (Reg64 res_reg) (Reg64 res_reg);         (* if (block==null) malloc_generic(n) *)
         I.je   (label lbl_alloc_generic);
-        I.inc  (mem64 DWORD 24 R11);             (* page->used++  *)
-        I.mov  (mem64 NONE 0 res_reg) r10;      (* next = *block *)
-        I.mov  r10 (mem64 NONE 16 R11);         (* page->free = next *)
-        I.lea  (mem64 NONE 8 res_reg) (Reg64 res_reg); (* res = block+8 *)
+        I.inc  (mem64 DWORD 24 R11);                    (* page->used++  *)
+        I.mov  (mem64 NONE 0 res_reg) r10;              (* next = *block *)
+        I.mov  r10 (mem64 NONE 16 R11);                 (* page->free = next *)
+        I.lea  (mem64 NONE 8 res_reg) (Reg64 res_reg);  (* res = block+8 *)
         def_label lbl_alloc_end
       end
       else begin
