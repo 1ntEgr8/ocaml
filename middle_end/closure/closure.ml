@@ -98,7 +98,6 @@ let occurs_var var u =
     | Uassign(id, u) -> id = var || occurs u
     | Usend(_, met, obj, args, _) ->
         occurs met || occurs obj || List.exists occurs args
-    | Udup e | Udrop e -> occurs e
     | Uunreachable -> false
   and occurs_array a =
     try
@@ -205,8 +204,6 @@ let lambda_smaller lam threshold =
     | Usend(_, met, obj, args, _) ->
         size := !size + 8;
         lambda_size met; lambda_size obj; lambda_list_size args
-    | Udup lam | Udrop lam ->
-        incr size; lambda_size lam
     | Uunreachable -> ()
   and lambda_list_size l = List.iter lambda_size l
   and lambda_array_size a = Array.iter lambda_size a in
@@ -701,8 +698,6 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
       let dbg = subst_debuginfo loc dbg in
       Usend(k, substitute loc st sb rn u1, substitute loc st sb rn u2,
             List.map (substitute loc st sb rn) ul, dbg)
-  | Udup u -> Udup (substitute loc st sb rn u)
-  | Udrop u -> Udrop (substitute loc st sb rn u)
   | Uunreachable ->
       Uunreachable
 
@@ -1215,12 +1210,6 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       (Uassign(id, ulam), Value_unknown)
   | Levent(lam, _) ->
       close env lam
-  | Ldup lam ->
-      let (ulam, _) = close env lam in 
-      (Udup ulam, Value_unknown)
-  | Ldrop lam ->
-      let (ulam, _) = close env lam in
-      (Udrop ulam, Value_unknown)
   | Lifused _ ->
       assert false
 
@@ -1508,7 +1497,6 @@ let collect_exported_structured_constants a =
     | Ufor (_, u1, u2, _, u3) -> ulam u1; ulam u2; ulam u3
     | Uassign (_, u) -> ulam u
     | Usend (_, u1, u2, ul, _) -> ulam u1; ulam u2; List.iter ulam ul
-    | Udrop u | Udup u -> ulam u
     | Uunreachable -> ()
   in
   approx a

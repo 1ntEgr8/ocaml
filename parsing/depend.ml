@@ -269,8 +269,6 @@ let rec add_expr bv exp =
       | _ -> handle_extension e
       end
   | Pexp_extension e -> handle_extension e
-  | Pexp_dup e -> add_expr bv e
-  | Pexp_drop e -> add_expr bv e
   | Pexp_unreachable -> ()
 
 and add_cases bv cases =

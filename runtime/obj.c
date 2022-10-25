@@ -291,3 +291,21 @@ CAMLprim value caml_obj_get_refcount(value obj) {
     return Val_int(Refcnt_hd(hd));
   }
 }
+
+// The following definitions are stubs and only used to trick the compiler
+// into recognizing reference counting operations through the Obj module.
+//
+// Calls to these functions through the Obj module are treated specially
+// by the compiler.
+//
+// A better approach to handling this would be to introduce a special
+// "%refcount" primitive, but doing so seems to require bootstrapping,
+// which we are not ready to do yet.
+
+CAMLprim value caml_obj_my_dup(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_obj_my_drop(value obj) {
+  return obj;
+}

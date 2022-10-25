@@ -72,8 +72,6 @@ and ulambda =
       * direction_flag * ulambda
   | Uassign of Backend_var.t * ulambda
   | Usend of meth_kind * ulambda * ulambda * ulambda list * Debuginfo.t
-  | Udup of ulambda
-  | Udrop of ulambda
   | Uunreachable
 
 and ufunction = {

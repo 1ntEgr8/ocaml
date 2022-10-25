@@ -660,8 +660,6 @@ let mk_directive ~loc name arg =
 %token DOT                    "."
 %token DOTDOT                 ".."
 %token DOWNTO                 "downto"
-%token DUP                    "my_dup"
-%token DROP                   "my_drop"
 %token ELSE                   "else"
 %token END                    "end"
 %token EOF                    ""
@@ -2330,10 +2328,6 @@ expr:
       { Pexp_assert $3, $2 }
   | LAZY ext_attributes simple_expr %prec below_HASH
       { Pexp_lazy $3, $2 }
-  | DUP ext_attributes simple_expr %prec below_HASH
-      { Pexp_dup $3, $2 }
-  | DROP ext_attributes simple_expr %prec below_HASH
-      { Pexp_drop $3, $2 }
 ;
 %inline expr_:
   | simple_expr nonempty_llist(labeled_simple_expr)
@@ -3788,8 +3782,6 @@ single_attr_id:
   | DO { "do" }
   | DONE { "done" }
   | DOWNTO { "downto" }
-  | DROP { "my_drop" }
-  | DUP { "my_dup" }
   | ELSE { "else" }
   | END { "end" }
   | EXCEPTION { "exception" }

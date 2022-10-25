@@ -82,6 +82,9 @@ external with_tag : int -> t -> t = "caml_obj_with_tag"
 (* Refcount helpers *)
 external get_refcount : 'a -> int = "caml_obj_get_refcount"
 
+external my_dup : 'a -> 'a = "caml_obj_my_dup"
+external my_drop : 'a -> unit = "caml_obj_my_drop"
+
 val first_non_constant_constructor_tag : int
 val last_non_constant_constructor_tag : int
 

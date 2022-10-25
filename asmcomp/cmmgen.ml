@@ -677,14 +677,6 @@ let rec transl env e =
       | Some (unboxed_id, bn) ->
           return_unit dbg (Cassign(unboxed_id, unbox_number dbg bn cexp))
       end
-  | Udup e ->
-      (* TODO add debug info *)
-      let dbg = Debuginfo.none in
-      Cop(Cdup, [transl env e], dbg)
-  | Udrop e ->
-      (* TODO add debug info *)
-      let dbg = Debuginfo.none in
-      Cop(Cdrop, [transl env e], dbg)
   | Uunreachable ->
       let dbg = Debuginfo.none in
       Cop(Cload (Word_int, Mutable), [Cconst_int (0, dbg)], dbg)

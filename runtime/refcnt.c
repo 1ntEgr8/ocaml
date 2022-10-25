@@ -90,6 +90,3 @@ void rc_drop_free( value v ) {
   }
   mi_free(Hp_val(v));
 }
-
-
-

@@ -305,7 +305,6 @@ and rw_exp iflag sexp =
       rewrite_exp iflag body
   | Pexp_extension _ -> ()
   | Pexp_unreachable -> ()
-  | _ -> failwith "tools/ocamlprof.ml unimplemented"
 
 and rewrite_ifbody iflag ghost sifbody =
   if !instr_if && not ghost then

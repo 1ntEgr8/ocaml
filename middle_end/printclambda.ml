@@ -233,10 +233,6 @@ and lam ppf = function
         else if k = Lambda.Cached then "cache"
         else "" in
       fprintf ppf "@[<2>(send%s@ %a@ %a%a)@]" kind lam obj lam met args largs
-  | Udup l ->
-      fprintf ppf "@[<2>(dup %a)@]" lam l
-  | Udrop l ->
-      fprintf ppf "@[<2>(drop %a)@]" lam l
   | Uunreachable ->
       fprintf ppf "unreachable"
 

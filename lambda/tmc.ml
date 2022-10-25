@@ -659,12 +659,6 @@ let rec choice ctx t =
     | Lifused (x, lam) ->
         let+ lam = choice ctx ~tail lam in
         Lifused (x, lam)
-    | Ldup lam ->
-        let+ lam = choice ctx ~tail lam in
-        Ldup (lam)
-    | Ldrop lam ->
-        let+ lam = choice ctx ~tail lam in
-        Ldrop (lam)
 
   and choice_apply ctx ~tail apply =
     let exception No_tmc in

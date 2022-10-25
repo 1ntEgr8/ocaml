@@ -415,8 +415,6 @@ and expression_desc =
       (** - [let* P = E0 in E1]
             - [let* P0 = E00 and* P1 = E01 in E1] *)
   | Pexp_extension of extension  (** [[%id]] *)
-  | Pexp_dup of expression (** my_dup e *)
-  | Pexp_drop of expression (** my_drop e *)
   | Pexp_unreachable  (** [.] *)
 
 and case =

@@ -1,3 +1,5 @@
+open Obj
+
 type color =
 | Red
 | Black;;

@@ -292,8 +292,6 @@ type lambda =
   | Lsend of meth_kind * lambda * lambda * lambda list * scoped_location
   | Levent of lambda * lambda_event
   | Lifused of Ident.t * lambda
-  | Ldup of lambda
-  | Ldrop of lambda
 
 and lfunction = private
   { kind: function_kind;
