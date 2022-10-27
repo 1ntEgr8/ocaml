@@ -1318,6 +1318,23 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
       build_closure_env env_param (fv_pos - env_pos) fv
     in
     let cenv_fv =
+      (* This is a little hacky :)
+      
+      The compiler decides to pass an environment argument ONLY if the
+      environment field is used in the closure body. It figures this out
+      by first running this function and then checking if the environment
+      field is used to access a free variable. If that's the case, it then
+      sets `useless_env` to false and re-runs this function.
+
+      Now, if `useless_env` is initially true, the dup/drop let-bindings
+      are not added, even if the closure uses free variables. To add the
+      let-bindings, we want this function to be run again with
+      `useless_env` set to false. To do that, we replace all occurrences
+      of free variables with an access through the environment, thereby
+      tricking the compiler that the environment is needed, which in turn
+      triggers a re-run of this function.
+      *)
+        
       if !useless_env then
         cenv_fv_pre_binding
       else
