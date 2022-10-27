@@ -1341,7 +1341,13 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
 
     (* Add dups for the environment fields *)
 
-    let dup lam = lam in
+    let dup lam =
+      Uprim (Pccall (Primitive.simple
+          ~name:"caml_obj_my_dup"
+          ~arity:1
+          ~alloc:false
+      ), [lam], Debuginfo.none)
+    in
     let insert_dups body =
       let rec helper xs =
         match xs with
