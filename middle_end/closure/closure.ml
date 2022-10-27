@@ -1299,8 +1299,36 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
   (* Translate each function definition *)
   let clos_fundef (id, params, return, body, fundesc, dbg) env_pos =
     let env_param = V.create_local "env" in
+
+    (* Dupping the environment and dropping the closure
+
+      We need to dup the environment and drop the closure for each function
+      application. This is done by prepending let-expressions that bind the
+      dupped value of each environment field to the function body, and then
+      dropping the closure (via the `env_param`, which points to the closure).
+
+      TODO we should do this for Cmm generated `caml_curry$N` functions as well
+
+      *)
+
+    (* start of inserting dups/drops *)
+
+    (* Build closure environment *)
+    let cenv_fv_pre_binding =
+      build_closure_env env_param (fv_pos - env_pos) fv
+    in
     let cenv_fv =
-      build_closure_env env_param (fv_pos - env_pos) fv in
+      if !useless_env then
+        cenv_fv_pre_binding
+      else
+        List.fold_right (fun id env ->
+          let new_id = V.create_local (V.name id) in
+          V.Map.add id (Uvar new_id) env
+        ) fv V.Map.empty
+    in
+
+    (* Close the function *)
+
     let cenv_body =
       List.fold_right2
         (fun (id, _params, _return, _body, _fundesc, _dbg) pos env ->
@@ -1310,11 +1338,40 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
       close { backend; fenv = fenv_rec; cenv = cenv_body; mutable_vars } body
     in
     if !useless_env && occurs_var env_param ubody then raise NotClosed;
+
+    (* Add dups for the environment fields *)
+
+    let dup lam = lam in
+    let insert_dups body =
+      let rec helper xs =
+        match xs with
+        | [] -> body
+        | id :: rest ->
+            let access = V.Map.find id cenv_fv_pre_binding in
+            let new_id =
+              match V.Map.find id cenv_fv with
+              | Uvar new_id -> VP.create new_id
+              | _ -> raise Exit
+            in
+            Ulet(Immutable, Pgenval, new_id, dup (access), helper rest)
+      in
+      helper fv
+    in
+    let ubody =
+      if !useless_env then
+        ubody
+      else
+        insert_dups ubody
+    in
+
+    (* end of inserting dups/drops *)
+
     let fun_params =
       if !useless_env
       then params
       else params @ [env_param, Pgenval]
     in
+
     let f =
       {
         label  = fundesc.fun_label;
