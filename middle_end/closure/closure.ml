@@ -1302,14 +1302,14 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
 
     (* Dupping the environment and dropping the closure
 
-      We need to dup the environment and drop the closure for each function
-      application. This is done by prepending let-expressions that bind the
-      dupped value of each environment field to the function body, and then
-      dropping the closure (via the `env_param`, which points to the closure).
+       We need to dup the environment and drop the closure for each function
+       application. This is done by prepending let-expressions that bind the
+       dupped value of each environment field to the function body, and then
+       dropping the closure (via the `env_param`, which points to the closure).
 
-      TODO we should do this for Cmm generated `caml_curry$N` functions as well
+       TODO we should do this for Cmm generated `caml_curry$N` functions as well
 
-      *)
+    *)
 
     (* start of inserting dups/drops *)
 
@@ -1320,19 +1320,19 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
     let cenv_fv =
       (* This is a little hacky :)
       
-      The compiler decides to pass an environment argument ONLY if the
-      environment field is used in the closure body. It figures this out
-      by first running this function and then checking if the environment
-      field is used to access a free variable. If that's the case, it then
-      sets `useless_env` to false and re-runs this function.
+         The compiler decides to pass an environment argument ONLY if the
+         environment field is used in the closure body. It figures this out
+         by first running this function and then checking if the environment
+         field is used to access a free variable. If that's the case, it then
+         sets `useless_env` to false and re-runs this function.
 
-      Now, if `useless_env` is initially true, the dup/drop let-bindings
-      are not added, even if the closure uses free variables. To add the
-      let-bindings, we want this function to be run again with
-      `useless_env` set to false. To do that, we replace all occurrences
-      of free variables with an access through the environment, thereby
-      tricking the compiler that the environment is needed, which in turn
-      triggers a re-run of this function.
+         Now, if `useless_env` is initially true, the dup/drop let-bindings
+         are not added, even if the closure uses free variables. To add the
+         let-bindings, we want this function to be run again with
+         `useless_env` set to false. To do that, we replace all occurrences
+         of free variables with an access through the environment, thereby
+         tricking the compiler into thinking that the environment is needed, which in turn
+         triggers a re-run of this function.
       *)
         
       if !useless_env then
@@ -1356,8 +1356,18 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
     in
     if !useless_env && occurs_var env_param ubody then raise NotClosed;
 
-    (* Add dups for the environment fields *)
+    (* Prepend dupping the environment and dropping the closure *)
 
+    let prepend_drop_clos body =
+      Usequence (
+        Uprim (Pccall (Primitive.simple
+          ~name:"caml_obj_my_drop"
+          ~arity:1
+          ~alloc:false
+        ), [Uvar env_param], Debuginfo.none),
+        body
+      )
+    in
     let dup lam =
       Uprim (Pccall (Primitive.simple
           ~name:"caml_obj_my_dup"
@@ -1365,7 +1375,7 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
           ~alloc:false
       ), [lam], Debuginfo.none)
     in
-    let insert_dups body =
+    let prepend_dup_env body =
       let rec helper xs =
         match xs with
         | [] -> body
@@ -1384,7 +1394,10 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
       if !useless_env then
         ubody
       else
-        insert_dups ubody
+        (* dup the environment first, then drop the closure, then execute
+           the closure. *)
+        prepend_drop_clos ubody
+        |> prepend_dup_env
     in
 
     (* end of inserting dups/drops *)
