@@ -35,6 +35,7 @@ type test =
   | Ifloattest of float_comparison
   | Ioddtest
   | Ieventest
+  | Iuniquetest of bool
 
 type operation =
     Imove
@@ -66,6 +67,10 @@ type operation =
   | Idrop of { is_ptr : bool; }
   | Icopy
   | Idupcopy of { is_ptr : bool; }
+  | Irefcount
+  | Iisunique
+  | Idecr
+  | Ifree
 
 type instruction =
   { desc: instruction_desc;

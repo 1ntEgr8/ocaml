@@ -60,6 +60,9 @@ external rc_dup_copy_ptr: 'a -> 'a   = "caml_rc_dup_copy_ptr"
 external rc_dup_ptr     : 'a -> unit = "caml_rc_dup_ptr"
 external rc_drop_ptr    : 'a -> unit = "caml_rc_drop_ptr"
 
+external rc_decr        : 'a -> unit = "caml_rc_decr"
+external rc_free        : 'a -> unit = "caml_rc_free"
+external rc_is_unique   : 'a -> bool = "caml_rc_is_unique" [@@noalloc]
 
 let first_non_constant_constructor_tag = 0
 let last_non_constant_constructor_tag = 245

@@ -322,8 +322,11 @@ method is_simple_expr = function
   | Csequence(e1, e2) -> self#is_simple_expr e1 && self#is_simple_expr e2
   | Cop(op, args, _) ->
       begin match op with
+        (* pure externals *)
+      | Cextcall("caml_rc_is_unique", _, _, _) -> Printf.printf "is simple\n"; List.for_all self#is_simple_expr args
+      | Cextcall(fn, _, _, _) -> Printf.printf "%s is not simple\n" fn; false
         (* The following may have side effects *)
-      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _ | Copaque -> false
+      | Capply _  | Calloc | Cstore _ | Craise _ | Copaque -> false
         (* The remaining operations are simple if their args are *)
       | Cload _ | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi | Cand | Cor
       | Cxor | Clsl | Clsr | Casr | Ccmpi _ | Caddv | Cadda | Ccmpa _ | Cnegf
@@ -362,6 +365,7 @@ method effects_of exp =
   | Cop (op, args, _) ->
     let from_op =
       match op with
+      | Cextcall("caml_rc_is_unique", _, _, _) -> EC.none
       | Capply _ | Cextcall _ | Copaque -> EC.arbitrary
       | Calloc -> EC.none
       | Cstore _ -> EC.effect_only Effect.Arbitrary
@@ -451,6 +455,10 @@ method select_operation op args _dbg =
     | "caml_rc_dup_ptr"  -> Idup{is_ptr=true}, args
     | "caml_rc_drop_ptr" -> Idrop{is_ptr=true}, args
     | "caml_rc_dup_copy_ptr" -> Idupcopy{is_ptr=true}, args
+    | "caml_rc_refcount"  -> Irefcount, args
+    | "caml_rc_is_unique" -> Iisunique, args
+    | "caml_rc_decr" -> Idrop{is_ptr=true}, args  (* TODO: Idecr, args *)  
+    | "caml_rc_free" -> Ifree, args 
     | _ -> Iextcall { func; ty_res; ty_args; alloc; }, args)
   | (Cload (chunk, mut), [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in
@@ -545,6 +553,10 @@ method select_condition = function
       (Ifloattest cmp, Ctuple args)
   | Cop(Cand, [arg; Cconst_int (1, _)], _) ->
       (Ioddtest, arg)
+  | Cop(Cextcall("caml_rc_is_unique", _ty_res, _ty_args, _alloc), [arg], _) ->
+      (* (Iinttest_imm(Iunsigned(Ceq),0), Cop(Cextcall("caml_rc_refcount", ty_res, ty_args, alloc), arg, x)) *)
+      Printf.printf "caml_test\n";
+      (Iuniquetest(true), arg)
   | arg ->
       (Itruetest, arg)
 

@@ -73,6 +73,7 @@ let invert_test = function
   | Ifloattest(cmp) -> Ifloattest(Cmm.negate_float_comparison cmp)
   | Ieventest -> Ioddtest
   | Ioddtest -> Ieventest
+  | Iuniquetest(is_unique) -> Iuniquetest(not is_unique)
 
 (* The "end" instruction *)
 

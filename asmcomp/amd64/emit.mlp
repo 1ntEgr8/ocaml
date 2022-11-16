@@ -735,6 +735,29 @@ let emit_instr env fallthrough i =
         record_frame env i.live (Dbg_alloc dbginfo) ;
         I.lea (mem64 NONE 8 R11) (res i 0);
       end
+
+  | Lop(Irefcount) ->
+      I.mov (mem64 DWORD (-4) (arg64 i 0)) (Reg64 (res64 i 0))
+      
+  | Lop(Iisunique) ->
+      let isu_reg = arg64 i 0 in
+      let out_reg = res64 i 0 in
+      let lbl_isu_end = new_label() in
+      (* read the refcount and compare *)
+      I.xor   (Reg64 out_reg) (Reg64 out_reg);
+      I.cmp   (int 0) (mem64 DWORD (-4) isu_reg);
+      I.jne   (label lbl_isu_end);
+      I.inc   (Reg64 out_reg);
+      def_label lbl_isu_end            
+
+  | Lop(Idecr) ->
+      Printf.printf("emit.mlp:Lop(Idecr): not supported yet; use Idrop(true) instead!\n")
+
+  | Lop(Ifree) ->
+      let free_reg = arg64 i 0 in
+      I.mov (Reg64 free_reg) r11;
+      emit_call "caml_free"; (* TODO: inline fast free path *)
+
   (*
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       if env.f.fun_fast then begin
@@ -905,6 +928,9 @@ let emit_instr env fallthrough i =
       | Ieventest ->
           I.test (int 1) (arg8 i 0);
           I.je lbl
+      | Iuniquetest(is_unique) ->
+          I.cmp (int 0) (mem64 DWORD (-4) (arg64 i 0));
+          I.j (if is_unique then E else NE) lbl
       end
   | Lcondbranch3(lbl0, lbl1, lbl2) ->
       I.cmp (int 1) (arg i 0);

@@ -35,6 +35,7 @@ type test =
   | Ifloattest of float_comparison
   | Ioddtest
   | Ieventest
+  | Iuniquetest of bool
 
 type operation =
     Imove
@@ -62,9 +63,13 @@ type operation =
   | Ispecific of Arch.specific_operation
   | Ipoll of { return_label: Cmm.label option }
   | Idup of { is_ptr : bool; }
-  | Idrop of { is_ptr : bool; }
+  | Idrop of { is_ptr : bool; }  (* todo: should be: Unknown | Ptr (Unknown | field_count) *)
   | Icopy
   | Idupcopy of { is_ptr : bool; }
+  | Irefcount
+  | Iisunique
+  | Idecr
+  | Ifree 
 
 type instruction =
   { desc: instruction_desc;
@@ -154,7 +159,7 @@ let operation_is_pure = function
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _ | Ipoll _
   | Iintop(Icheckbound) | Iintop_imm(Icheckbound, _) | Iopaque -> false
   | Ispecific sop -> Arch.operation_is_pure sop
-  | Idup _ | Idrop _ | Icopy | Idupcopy _ -> false
+  | Idup _ | Idrop _ | Icopy | Idupcopy _ | Idecr | Ifree  -> false
   | _ -> true
 
 let operation_can_raise op =

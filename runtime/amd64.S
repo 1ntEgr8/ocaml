@@ -334,7 +334,93 @@ CFI_STARTPROC
 CFI_ENDPROC
 ENDFUNCTION(G(caml_drop_atomic))
 
+/* r11 is the argument */
+FUNCTION(G(caml_free))
+CFI_STARTPROC
+    /* Save caller-saved registers */
+    pushq   %rax; CFI_ADJUST (8);  
+    pushq   %rcx; CFI_ADJUST (8);
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    pushq   %rdi; CFI_ADJUST (8); 
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    pushq   %r10; CFI_ADJUST (8);
+    /* pushq   %r11; CFI_ADJUST (8); */
+    /*
+    pushq   %r12; CFI_ADJUST (8);
+    pushq   %r13; CFI_ADJUST (8);
+    pushq   %r14; CFI_ADJUST (8);
+    pushq   %r15; CFI_ADJUST (8);
+    */
 
+    /* Save floating-point registers 
+    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
+    movsd   %xmm0, 0*8(%rsp)
+    movsd   %xmm1, 1*8(%rsp)
+    movsd   %xmm2, 2*8(%rsp)
+    movsd   %xmm3, 3*8(%rsp)
+    movsd   %xmm4, 4*8(%rsp)
+    movsd   %xmm5, 5*8(%rsp)
+    movsd   %xmm6, 6*8(%rsp)
+    movsd   %xmm7, 7*8(%rsp)
+    movsd   %xmm8, 8*8(%rsp)
+    movsd   %xmm9, 9*8(%rsp)
+    movsd   %xmm10, 10*8(%rsp)
+    movsd   %xmm11, 11*8(%rsp)
+    movsd   %xmm12, 12*8(%rsp)
+    movsd   %xmm13, 13*8(%rsp)
+    movsd   %xmm14, 14*8(%rsp)
+    movsd   %xmm15, 15*8(%rsp)
+    */
+
+    /* Make the call; rdi contains the first argument */
+    movq    %r11, %rdi
+
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_free)
+    CLEANUP_AFTER_C_CALL
+
+    /* Restore floating point registers 
+    movsd   0*8(%rsp), %xmm0
+    movsd   1*8(%rsp), %xmm1
+    movsd   2*8(%rsp), %xmm2
+    movsd   3*8(%rsp), %xmm3
+    movsd   4*8(%rsp), %xmm4
+    movsd   5*8(%rsp), %xmm5
+    movsd   6*8(%rsp), %xmm6
+    movsd   7*8(%rsp), %xmm7
+    movsd   8*8(%rsp), %xmm8
+    movsd   9*8(%rsp), %xmm9
+    movsd   10*8(%rsp), %xmm10
+    movsd   11*8(%rsp), %xmm11
+    movsd   12*8(%rsp), %xmm12
+    movsd   13*8(%rsp), %xmm13
+    movsd   14*8(%rsp), %xmm14
+    movsd   15*8(%rsp), %xmm15
+    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
+    */
+
+    /* Restore caller-saved registers */
+    /*
+    popq    %r15; CFI_ADJUST (8);
+    popq    %r14; CFI_ADJUST (8);
+    popq    %r13; CFI_ADJUST (8);
+    popq    %r12; CFI_ADJUST (8);    
+    */
+    /* popq    %r11; CFI_ADJUST (-8); */
+    popq    %r10; CFI_ADJUST (-8);
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    popq    %rdi; CFI_ADJUST (-8); 
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);
+    popq    %rcx; CFI_ADJUST (-8);
+    popq    %rax; CFI_ADJUST (-8); 
+
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_free))
 
 /* r11 is the drop argument 
 */

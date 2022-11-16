@@ -70,7 +70,7 @@ static inline void rc_drop( value v ) {
 void rc_drop_free( value v ) {
   tag_t t;
   assert(Is_block(v));
-  if (!Is_block(v)) printf("ouchie\n");
+  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_drop_free: not a block!\n");
   t = Tag_val(v);
   if rc_likely(t < No_scan_tag) {
     mlsize_t first_field;
@@ -88,6 +88,12 @@ void rc_drop_free( value v ) {
       rc_drop(Field(v,i));
     }
   }
+  mi_free(Hp_val(v));
+}
+
+void rc_free( value v ) {
+  assert(Is_block(v));
+  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_free: not a block!\n");
   mi_free(Hp_val(v));
 }
 
@@ -123,5 +129,21 @@ CAMLprim value caml_rc_drop_ptr(value obj) {
 }
 
 CAMLprim value caml_rc_dup_copy_ptr(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_refcount(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_is_unique(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_free(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_decr(value obj) {
   return obj;
 }

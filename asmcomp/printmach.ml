@@ -103,6 +103,7 @@ let test tst ppf arg =
        reg arg.(0) (floatcomp cmp) reg arg.(1)
   | Ieventest -> fprintf ppf "%a & 1 == 0" reg arg.(0)
   | Ioddtest -> fprintf ppf "%a & 1 == 1" reg arg.(0)
+  | Iuniquetest(is_unique) -> fprintf ppf "%a is %sunique" reg arg.(0) (if is_unique then "" else "not ")
 
 let operation op arg ppf res =
   if Array.length res > 0 then fprintf ppf "%a := " regs res;
@@ -160,6 +161,10 @@ let operation op arg ppf res =
   | Idrop _ -> fprintf ppf "drop "
   | Icopy -> fprintf ppf "copy "
   | Idupcopy _ -> fprintf ppf "dupcopy " 
+  | Irefcount -> fprintf ppf "refcount " 
+  | Iisunique -> fprintf ppf "isunique " 
+  | Idecr -> fprintf ppf "decr " 
+  | Ifree -> fprintf ppf "free " 
 
 let rec instr ppf i =
   if !Clflags.dump_live then begin

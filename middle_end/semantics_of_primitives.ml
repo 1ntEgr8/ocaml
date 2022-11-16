@@ -31,7 +31,8 @@ let for_primitive (prim : Clambda_primitives.primitive) =
       Only_generative_effects, Has_coeffects
   | Pccall { prim_name =
                ( "caml_format_float" | "caml_format_int" | "caml_int32_format"
-               | "caml_nativeint_format" | "caml_int64_format" ) } ->
+               | "caml_nativeint_format" | "caml_int64_format" 
+               | "caml_rc_is_unique") } ->
       No_effects, No_coeffects
   | Pccall _ -> Arbitrary_effects, Has_coeffects
   | Praise _ -> Arbitrary_effects, No_coeffects
