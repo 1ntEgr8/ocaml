@@ -636,18 +636,19 @@ let emit_instr env fallthrough i =
      If the lambda is a long, then no need to emit anything :)
   *)
 
-  (*
-  | Lop(Idup) ->
-      I.mov (arg i 0) rdi;
-      emit_call "caml_obj_rc_dup"
-  *) 
+  | Lop(Icopy) ->
+      (* do nothing, the input register is the output register *)
+      ();
 
-  | Lop(Idup) ->
+  | Lop(Idupcopy) | Lop(Idup) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
                (by default instructions get register arguments -- see `reload.ml`)
          we use eax to contain the 32-bit refcount
       *)
-      let dup_reg = res64 i 0 in (* not `arg64 i 0` since in `selection.ml:pseudoregs_for_operation` we force the result to be the argument register *)
+      let dup_reg = match i.desc with
+                      | Lop(Idupcopy) -> res64 i 0  (* not `arg64 i 0` since in `selection.ml:pseudoregs_for_operation` we force the result to be the argument register *)
+                      | _             -> arg64 i 0 
+                    in
       let lbl_dup_end = new_label() in
       let push_tmp = (dup_reg == R11) in
       let tmp_reg = if (push_tmp) then r10d else r11d in
@@ -669,10 +670,6 @@ let emit_instr env fallthrough i =
       (* end *)
       def_label lbl_dup_end;      
       if (push_tmp) then I.pop r10 else ()
-  
-  (*| Lop(Idrop) -> 
-      I.mov (arg i 0) rdi;
-      emit_call "caml_obj_rc_drop" *)
 
   | Lop(Idrop) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
@@ -714,7 +711,7 @@ let emit_instr env fallthrough i =
         env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
         let idx = 8 + n in        
         (* todo: this goes wrong if res_reg is R11 or R10 *)
-        if(res_reg == R11 && res_reg == R10) then Printf.printf("ouch!\n");
+        if(res_reg == R11 && res_reg == R10) then Printf.printf("emit.mlp:Lop(Ialloc): register allocation conflict!\n");
         I.mov  (mem64 NONE idx R15) r11;                (* r11 = page = heap->pages_free_direct[n/8] *)
         I.mov  (mem64 NONE 16 R11) (Reg64 res_reg);     (* res = block = page->free *)        
         I.test (Reg64 res_reg) (Reg64 res_reg);         (* if (block==null) malloc_generic(n) *)

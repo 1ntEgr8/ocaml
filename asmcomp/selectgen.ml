@@ -444,8 +444,10 @@ method select_operation op args _dbg =
   | (Cextcall(func, ty_res, ty_args, alloc), _) ->
     (* Specially handle reference counting instructions *)
     (match func with
-    | "caml_obj_my_dup" -> Idup, args
-    | "caml_obj_my_drop" -> Idrop, args
+    | "caml_rc_copy" -> Icopy, args
+    | "caml_rc_dup"  -> Idup, args
+    | "caml_rc_drop" -> Idrop, args
+    | "caml_rc_dup_copy" -> Idupcopy, args
     | _ -> Iextcall { func; ty_res; ty_args; alloc; }, args)
   | (Cload (chunk, mut), [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in

@@ -63,6 +63,8 @@ type operation =
   | Ipoll of { return_label: Cmm.label option }
   | Idup
   | Idrop
+  | Icopy
+  | Idupcopy 
 
 type instruction =
   { desc: instruction_desc;
@@ -152,7 +154,7 @@ let operation_is_pure = function
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _ | Ipoll _
   | Iintop(Icheckbound) | Iintop_imm(Icheckbound, _) | Iopaque -> false
   | Ispecific sop -> Arch.operation_is_pure sop
-  | Idup | Idrop -> false
+  | Idup | Idrop | Icopy | Idupcopy -> false
   | _ -> true
 
 let operation_can_raise op =

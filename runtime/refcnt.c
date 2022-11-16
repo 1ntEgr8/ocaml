@@ -90,3 +90,26 @@ void rc_drop_free( value v ) {
   }
   mi_free(Hp_val(v));
 }
+
+
+// The following definitions are stubs and only used to trick the compiler
+// into recognizing reference counting operations through the Obj module.
+//
+// Calls to these functions through the Obj module are treated specially
+// by the compiler.
+
+CAMLprim value caml_rc_copy(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_dup(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_drop(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_dup_copy(value obj) {
+  return obj;
+}

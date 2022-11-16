@@ -158,6 +158,8 @@ let operation op arg ppf res =
         fprintf ppf " returning to L%d" return_label)
   | Idup -> fprintf ppf "dup "
   | Idrop -> fprintf ppf "drop "
+  | Icopy -> fprintf ppf "copy "
+  | Idupcopy -> fprintf ppf "dupcopy "
 
 let rec instr ppf i =
   if !Clflags.dump_live then begin

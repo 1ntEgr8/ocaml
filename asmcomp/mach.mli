@@ -64,6 +64,8 @@ type operation =
   | Ipoll of { return_label: Cmm.label option }
   | Idup
   | Idrop
+  | Icopy
+  | Idupcopy
 
 type instruction =
   { desc: instruction_desc;

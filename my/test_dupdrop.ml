@@ -4,25 +4,29 @@ open List
 let rec map xs f =
   match xs with
   | x' :: xx' ->
-      let x = my_dup x' in
-      let xx = my_dup xx' in
-      my_drop xs;
-      let y = (my_dup f) x in
+      let x = rc_copy x' in
+      let xx = rc_copy xx' in
+      rc_dup x;
+      rc_dup xx;
+      rc_drop xs;
+      let y = (rc_dup_copy f) x in
       y :: (map xx f)
   | [] ->
-      my_drop xs;
-      my_drop f;
+      rc_drop xs;
+      rc_drop f;
       []
 
 let rec sum_acc xs acc =
   match xs with
   | x :: xx ->
-      let x = my_dup x in
-      let xx = my_dup xx in
-      my_drop xs;  
+      let x = rc_copy x in
+      let xx = rc_copy xx in
+      rc_dup x;
+      rc_dup xx;
+      rc_drop xs;  
       sum_acc xx (x + acc)
   | [] -> 
-      my_drop xs;
+      rc_drop xs;
       acc
 
 let sum xs = sum_acc xs 0
