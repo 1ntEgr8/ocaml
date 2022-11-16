@@ -61,10 +61,10 @@ type operation =
   | Iopaque
   | Ispecific of Arch.specific_operation
   | Ipoll of { return_label: Cmm.label option }
-  | Idup
-  | Idrop
+  | Idup of { is_ptr : bool; }
+  | Idrop of { is_ptr : bool; }
   | Icopy
-  | Idupcopy 
+  | Idupcopy of { is_ptr : bool; }
 
 type instruction =
   { desc: instruction_desc;
@@ -154,7 +154,7 @@ let operation_is_pure = function
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _ | Ipoll _
   | Iintop(Icheckbound) | Iintop_imm(Icheckbound, _) | Iopaque -> false
   | Ispecific sop -> Arch.operation_is_pure sop
-  | Idup | Idrop | Icopy | Idupcopy -> false
+  | Idup _ | Idrop _ | Icopy | Idupcopy _ -> false
   | _ -> true
 
 let operation_can_raise op =

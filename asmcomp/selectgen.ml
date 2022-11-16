@@ -445,9 +445,12 @@ method select_operation op args _dbg =
     (* Specially handle reference counting instructions *)
     (match func with
     | "caml_rc_copy" -> Icopy, args
-    | "caml_rc_dup"  -> Idup, args
-    | "caml_rc_drop" -> Idrop, args
-    | "caml_rc_dup_copy" -> Idupcopy, args
+    | "caml_rc_dup"  -> Idup{is_ptr=false}, args
+    | "caml_rc_drop" -> Idrop{is_ptr=false}, args
+    | "caml_rc_dup_copy" -> Idupcopy{is_ptr=false}, args
+    | "caml_rc_dup_ptr"  -> Idup{is_ptr=true}, args
+    | "caml_rc_drop_ptr" -> Idrop{is_ptr=true}, args
+    | "caml_rc_dup_copy_ptr" -> Idupcopy{is_ptr=true}, args
     | _ -> Iextcall { func; ty_res; ty_args; alloc; }, args)
   | (Cload (chunk, mut), [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in

@@ -85,11 +85,14 @@ external get_refcount : 'a -> int = "caml_obj_get_refcount"
 external my_dup  : 'a -> 'a   = "caml_rc_dup_copy"
 external my_drop : 'a -> unit = "caml_rc_drop"
 
-external rc_copy      : 'a -> 'a   = "caml_rc_copy"
-external rc_dup_copy  : 'a -> 'a   = "caml_rc_dup_copy"
-external rc_dup       : 'a -> unit = "caml_rc_dup"
-external rc_drop      : 'a -> unit = "caml_rc_drop"
+external rc_copy        : 'a -> 'a   = "caml_rc_copy"
+external rc_dup_copy    : 'a -> 'a   = "caml_rc_dup_copy"
+external rc_dup         : 'a -> unit = "caml_rc_dup"
+external rc_drop        : 'a -> unit = "caml_rc_drop"
 
+external rc_dup_copy_ptr: 'a -> 'a   = "caml_rc_dup_copy_ptr"
+external rc_dup_ptr     : 'a -> unit = "caml_rc_dup_ptr"
+external rc_drop_ptr    : 'a -> unit = "caml_rc_drop_ptr"
 
 val first_non_constant_constructor_tag : int
 val last_non_constant_constructor_tag : int

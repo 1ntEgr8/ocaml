@@ -321,7 +321,8 @@ let destroyed_at_oper = function
   | Iop(Ialloc _ | Ipoll _) -> destroyed_at_alloc_or_poll
   | Iop(Iintop(Imulh | Icomp _) | Iintop_imm((Icomp _), _))
         -> [| rax |]
-  | Iop(Idrop) | Iop(Idup) | Iop(Idupcopy) -> [| r11 |]  
+  | Iop(Idrop _) | Iop(Idup _) | Iop(Idupcopy _) -> [| r11 |]  
+  | Iop(Icopy) -> [| |]
   | Iswitch(_, _) -> [| rax; rdx |]
   | Itrywith _ -> [| r11 |]
   | _ ->

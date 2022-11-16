@@ -113,3 +113,15 @@ CAMLprim value caml_rc_drop(value obj) {
 CAMLprim value caml_rc_dup_copy(value obj) {
   return obj;
 }
+
+CAMLprim value caml_rc_dup_ptr(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_drop_ptr(value obj) {
+  return obj;
+}
+
+CAMLprim value caml_rc_dup_copy_ptr(value obj) {
+  return obj;
+}

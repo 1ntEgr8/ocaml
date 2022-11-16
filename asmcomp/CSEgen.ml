@@ -230,7 +230,7 @@ method class_of_operation op =
   | Istore(_,_,asg) -> Op_store asg
   | Ialloc _ | Ipoll _ -> assert false     (* treated specially *)
   (* TODO unsure what to put here *)
-  | Idup | Idrop | Icopy | Idupcopy -> Op_other
+  | Idup _ | Idrop _ | Icopy | Idupcopy _ -> Op_other
   | Iintop(Icheckbound) -> Op_checkbound
   | Iintop _ -> Op_pure
   | Iintop_imm(Icheckbound, _) -> Op_checkbound

@@ -62,10 +62,10 @@ type operation =
   | Iopaque
   | Ispecific of Arch.specific_operation
   | Ipoll of { return_label: Cmm.label option }
-  | Idup
-  | Idrop
+  | Idup of { is_ptr : bool; }
+  | Idrop of { is_ptr : bool; }
   | Icopy
-  | Idupcopy
+  | Idupcopy of { is_ptr : bool; }
 
 type instruction =
   { desc: instruction_desc;

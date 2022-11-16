@@ -8,8 +8,8 @@ let rec map xs f =
       let xx = rc_copy xx' in
       rc_dup x;
       rc_dup xx;
-      rc_drop xs;
-      let y = (rc_dup_copy f) x in
+      rc_drop_ptr xs;
+      let y = (rc_dup_copy_ptr f) x in
       y :: (map xx f)
   | [] ->
       rc_drop xs;
@@ -19,11 +19,11 @@ let rec map xs f =
 let rec sum_acc xs acc =
   match xs with
   | x :: xx ->
-      let x = rc_copy x in
+      (* let x = rc_copy x in *)
       let xx = rc_copy xx in
-      rc_dup x;
+      (* rc_dup x; *)
       rc_dup xx;
-      rc_drop xs;  
+      rc_drop_ptr xs;  
       sum_acc xx (x + acc)
   | [] -> 
       rc_drop xs;
