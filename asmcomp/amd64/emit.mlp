@@ -755,8 +755,9 @@ let emit_instr env fallthrough i =
 
   | Lop(Ifree) ->
       let free_reg = arg64 i 0 in
-      I.mov (Reg64 free_reg) r11;
-      emit_call "caml_free"; (* TODO: inline fast free path *)
+      I.lea (mem64 NONE (-8) free_reg) r11; (* pass pointer to the start of the heap block *)
+      emit_call "caml_rc_asm_free"
+      
 
   (*
   | Lop(Ialloc { bytes = n; dbginfo }) ->

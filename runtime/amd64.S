@@ -242,6 +242,43 @@
         popq    %rbp; CFI_ADJUST(-8); CFI_SAME_VALUE(rbp); \
         popq    %rbx; CFI_ADJUST(-8); CFI_SAME_VALUE(rbx)
 
+#define PUSH_CALLER_SAVE_INT_REGS \
+        pushq   %rax; CFI_ADJUST (8);  \
+        pushq   %rcx; CFI_ADJUST (8);  \
+        pushq   %rdx; CFI_ADJUST (8);  \
+        pushq   %r8; CFI_ADJUST (8);   \
+        pushq   %r9; CFI_ADJUST (8);   \
+        pushq   %r10; CFI_ADJUST (8);  \
+        pushq   %r11; CFI_ADJUST (8);
+
+#define POP_CALLER_SAVE_INT_REGS \
+        popq    %r11; CFI_ADJUST (-8); \
+        popq    %r10; CFI_ADJUST (-8); \
+        popq    %r9; CFI_ADJUST (-8); \
+        popq    %r8; CFI_ADJUST (-8); \
+        popq    %rdx; CFI_ADJUST (-8); \
+        popq    %rcx; CFI_ADJUST (-8); \
+        popq    %rax; CFI_ADJUST (-8);
+
+#define PUSH_CALLER_SAVE_FP_REGS \
+        subq    $(16*6), %rsp; CFI_ADJUST (16*6); \
+        movsd   %xmm0, 0*8(%rsp); \
+        movsd   %xmm1, 1*8(%rsp); \
+        movsd   %xmm2, 2*8(%rsp; \
+        movsd   %xmm3, 3*8(%rsp; \
+        movsd   %xmm4, 4*8(%rsp; \
+        movsd   %xmm5, 5*8(%rsp;
+
+
+#define POP_CALLER_SAVE_FP_REGS \
+        movsd   0*8(%rsp), %xmm0; \
+        movsd   1*8(%rsp), %xmm1; \
+        movsd   2*8(%rsp), %xmm2; \
+        movsd   3*8(%rsp), %xmm3; \
+        movsd   4*8(%rsp), %xmm4; \
+        movsd   5*8(%rsp), %xmm5; \
+        addq    $(16*6), %rsp; CFI_ADJUST(-16*6)
+
 #else
 
 /* Unix API: callee-save regs are rbx, rbp, r12-r15 */
@@ -264,7 +301,76 @@
         popq    %rbp; CFI_ADJUST(-8); CFI_SAME_VALUE(rbp); \
         popq    %rbx; CFI_ADJUST(-8); CFI_SAME_VALUE(rbx)
 
+#define PUSH_CALLER_SAVE_INT_REGS \
+        pushq   %rax; CFI_ADJUST (8); \
+        pushq   %rcx; CFI_ADJUST (8); \
+        pushq   %rdx; CFI_ADJUST (8); \
+        pushq   %rsi; CFI_ADJUST (8); \
+        pushq   %rdi; CFI_ADJUST (8); \
+        pushq   %r8; CFI_ADJUST (8); \
+        pushq   %r9; CFI_ADJUST (8); \
+        pushq   %r10; CFI_ADJUST (8); \
+        pushq   %r11; CFI_ADJUST (8);
+
+#define POP_CALLER_SAVE_INT_REGS \
+        popq    %r11; CFI_ADJUST (-8); \
+        popq    %r10; CFI_ADJUST (-8); \
+        popq    %r9; CFI_ADJUST (-8); \
+        popq    %r8; CFI_ADJUST (-8); \
+        popq    %rdi; CFI_ADJUST (-8); \
+        popq    %rsi; CFI_ADJUST (-8); \
+        popq    %rdx; CFI_ADJUST (-8); \
+        popq    %rcx; CFI_ADJUST (-8); \
+        popq    %rax; CFI_ADJUST (-8);
+
+#define PUSH_CALLER_SAVE_FP_REGS \
+        subq    $(16*8), %rsp; CFI_ADJUST (16*8); \
+        movsd   %xmm0, 0*8(%rsp); \
+        movsd   %xmm1, 1*8(%rsp); \
+        movsd   %xmm2, 2*8(%rsp; \
+        movsd   %xmm3, 3*8(%rsp; \
+        movsd   %xmm4, 4*8(%rsp; \
+        movsd   %xmm5, 5*8(%rsp; \
+        movsd   %xmm6, 6*8(%rsp; \
+        movsd   %xmm7, 7*8(%rsp; \
+        movsd   %xmm8, 8*8(%rsp; \
+        movsd   %xmm9, 9*8(%rsp; \
+        movsd   %xmm10, 10*8(%rsp; \
+        movsd   %xmm11, 11*8(%rsp; \
+        movsd   %xmm12, 12*8(%rsp; \
+        movsd   %xmm13, 13*8(%rsp; \
+        movsd   %xmm14, 14*8(%rsp; \
+        movsd   %xmm15, 15*8(%rsp; 
+
+#define POP_CALLER_SAVE_FP_REGS \
+        movsd   0*8(%rsp), %xmm0; \
+        movsd   1*8(%rsp), %xmm1; \
+        movsd   2*8(%rsp), %xmm2; \
+        movsd   3*8(%rsp), %xmm3; \
+        movsd   4*8(%rsp), %xmm4; \
+        movsd   5*8(%rsp), %xmm5; \
+        movsd   6*8(%rsp), %xmm6; \
+        movsd   7*8(%rsp), %xmm7; \
+        movsd   8*8(%rsp), %xmm8; \
+        movsd   9*8(%rsp), %xmm9; \
+        movsd   10*8(%rsp), %xmm10; \
+        movsd   11*8(%rsp), %xmm11; \
+        movsd   12*8(%rsp), %xmm12; \
+        movsd   13*8(%rsp), %xmm13; \
+        movsd   14*8(%rsp), %xmm14; \
+        movsd   15*8(%rsp), %xmm15; \
+        addq    $(16*8), %rsp; CFI_ADJUST(-16*8);
+
 #endif
+
+#define PUSH_CALLER_SAVE_REGS \
+        PUSH_CALLER_SAVE_INT_REGS \
+        PUSH_CALLER_SAVE_FP_REGS
+
+#define POP_CALLER_SAVE_REGS \
+        POP_CALLER_SAVE_INT_REGS \
+        POP_CALLER_SAVE_FP_REGS
+
 
 #if defined(SYS_mingw64) || defined (SYS_cygwin)
    /* Calls from OCaml to C must reserve 32 bytes of extra stack space */
@@ -337,87 +443,12 @@ ENDFUNCTION(G(caml_drop_atomic))
 /* r11 is the argument */
 FUNCTION(G(caml_free))
 CFI_STARTPROC
-    /* Save caller-saved registers */
-    pushq   %rax; CFI_ADJUST (8);  
-    pushq   %rcx; CFI_ADJUST (8);
-    pushq   %rdx; CFI_ADJUST (8);
-    pushq   %rsi; CFI_ADJUST (8);
-    pushq   %rdi; CFI_ADJUST (8); 
-    pushq   %r8; CFI_ADJUST (8);
-    pushq   %r9; CFI_ADJUST (8);
-    pushq   %r10; CFI_ADJUST (8);
-    /* pushq   %r11; CFI_ADJUST (8); */
-    /*
-    pushq   %r12; CFI_ADJUST (8);
-    pushq   %r13; CFI_ADJUST (8);
-    pushq   %r14; CFI_ADJUST (8);
-    pushq   %r15; CFI_ADJUST (8);
-    */
-
-    /* Save floating-point registers 
-    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-    movsd   %xmm0, 0*8(%rsp)
-    movsd   %xmm1, 1*8(%rsp)
-    movsd   %xmm2, 2*8(%rsp)
-    movsd   %xmm3, 3*8(%rsp)
-    movsd   %xmm4, 4*8(%rsp)
-    movsd   %xmm5, 5*8(%rsp)
-    movsd   %xmm6, 6*8(%rsp)
-    movsd   %xmm7, 7*8(%rsp)
-    movsd   %xmm8, 8*8(%rsp)
-    movsd   %xmm9, 9*8(%rsp)
-    movsd   %xmm10, 10*8(%rsp)
-    movsd   %xmm11, 11*8(%rsp)
-    movsd   %xmm12, 12*8(%rsp)
-    movsd   %xmm13, 13*8(%rsp)
-    movsd   %xmm14, 14*8(%rsp)
-    movsd   %xmm15, 15*8(%rsp)
-    */
-
-    /* Make the call; rdi contains the first argument */
-    movq    %r11, %rdi
-
+    PUSH_CALLER_SAVE_INT_REGS    
+    movq    %r11, %rdi          /* rdi is first argument on Unix */
     PREPARE_FOR_C_CALL
     call    GCALL(rc_free)
     CLEANUP_AFTER_C_CALL
-
-    /* Restore floating point registers 
-    movsd   0*8(%rsp), %xmm0
-    movsd   1*8(%rsp), %xmm1
-    movsd   2*8(%rsp), %xmm2
-    movsd   3*8(%rsp), %xmm3
-    movsd   4*8(%rsp), %xmm4
-    movsd   5*8(%rsp), %xmm5
-    movsd   6*8(%rsp), %xmm6
-    movsd   7*8(%rsp), %xmm7
-    movsd   8*8(%rsp), %xmm8
-    movsd   9*8(%rsp), %xmm9
-    movsd   10*8(%rsp), %xmm10
-    movsd   11*8(%rsp), %xmm11
-    movsd   12*8(%rsp), %xmm12
-    movsd   13*8(%rsp), %xmm13
-    movsd   14*8(%rsp), %xmm14
-    movsd   15*8(%rsp), %xmm15
-    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-    */
-
-    /* Restore caller-saved registers */
-    /*
-    popq    %r15; CFI_ADJUST (8);
-    popq    %r14; CFI_ADJUST (8);
-    popq    %r13; CFI_ADJUST (8);
-    popq    %r12; CFI_ADJUST (8);    
-    */
-    /* popq    %r11; CFI_ADJUST (-8); */
-    popq    %r10; CFI_ADJUST (-8);
-    popq    %r9; CFI_ADJUST (-8);
-    popq    %r8; CFI_ADJUST (-8);
-    popq    %rdi; CFI_ADJUST (-8); 
-    popq    %rsi; CFI_ADJUST (-8);
-    popq    %rdx; CFI_ADJUST (-8);
-    popq    %rcx; CFI_ADJUST (-8);
-    popq    %rax; CFI_ADJUST (-8); 
-
+    POP_CALLER_SAVE_INT_REGS
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_free))
@@ -426,90 +457,181 @@ ENDFUNCTION(G(caml_free))
 */
 FUNCTION(G(caml_drop_free))
 CFI_STARTPROC
-    /* Save caller-saved registers */
-    pushq   %rax; CFI_ADJUST (8);  
-    pushq   %rcx; CFI_ADJUST (8);
-    pushq   %rdx; CFI_ADJUST (8);
-    pushq   %rsi; CFI_ADJUST (8);
-    pushq   %rdi; CFI_ADJUST (8); 
-    pushq   %r8; CFI_ADJUST (8);
-    pushq   %r9; CFI_ADJUST (8);
-    pushq   %r10; CFI_ADJUST (8);
-    /* pushq   %r11; CFI_ADJUST (8); */
-    /*
-    pushq   %r12; CFI_ADJUST (8);
-    pushq   %r13; CFI_ADJUST (8);
-    pushq   %r14; CFI_ADJUST (8);
-    pushq   %r15; CFI_ADJUST (8);
-    */
-
-    /* Save floating-point registers 
-    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-    movsd   %xmm0, 0*8(%rsp)
-    movsd   %xmm1, 1*8(%rsp)
-    movsd   %xmm2, 2*8(%rsp)
-    movsd   %xmm3, 3*8(%rsp)
-    movsd   %xmm4, 4*8(%rsp)
-    movsd   %xmm5, 5*8(%rsp)
-    movsd   %xmm6, 6*8(%rsp)
-    movsd   %xmm7, 7*8(%rsp)
-    movsd   %xmm8, 8*8(%rsp)
-    movsd   %xmm9, 9*8(%rsp)
-    movsd   %xmm10, 10*8(%rsp)
-    movsd   %xmm11, 11*8(%rsp)
-    movsd   %xmm12, 12*8(%rsp)
-    movsd   %xmm13, 13*8(%rsp)
-    movsd   %xmm14, 14*8(%rsp)
-    movsd   %xmm15, 15*8(%rsp)
-    */
-
-    /* Make the call; rdi contains the first argument */
-    movq    %r11, %rdi
-
+    PUSH_CALLER_SAVE_INT_REGS
+    movq    %r11, %rdi             /* rdi is first arg on unix */
     PREPARE_FOR_C_CALL
     call    GCALL(rc_drop_free)
     CLEANUP_AFTER_C_CALL
-
-    /* Restore floating point registers 
-    movsd   0*8(%rsp), %xmm0
-    movsd   1*8(%rsp), %xmm1
-    movsd   2*8(%rsp), %xmm2
-    movsd   3*8(%rsp), %xmm3
-    movsd   4*8(%rsp), %xmm4
-    movsd   5*8(%rsp), %xmm5
-    movsd   6*8(%rsp), %xmm6
-    movsd   7*8(%rsp), %xmm7
-    movsd   8*8(%rsp), %xmm8
-    movsd   9*8(%rsp), %xmm9
-    movsd   10*8(%rsp), %xmm10
-    movsd   11*8(%rsp), %xmm11
-    movsd   12*8(%rsp), %xmm12
-    movsd   13*8(%rsp), %xmm13
-    movsd   14*8(%rsp), %xmm14
-    movsd   15*8(%rsp), %xmm15
-    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-    */
-
-    /* Restore caller-saved registers */
-    /*
-    popq    %r15; CFI_ADJUST (8);
-    popq    %r14; CFI_ADJUST (8);
-    popq    %r13; CFI_ADJUST (8);
-    popq    %r12; CFI_ADJUST (8);    
-    */
-    /* popq    %r11; CFI_ADJUST (-8); */
-    popq    %r10; CFI_ADJUST (-8);
-    popq    %r9; CFI_ADJUST (-8);
-    popq    %r8; CFI_ADJUST (-8);
-    popq    %rdi; CFI_ADJUST (-8); 
-    popq    %rsi; CFI_ADJUST (-8);
-    popq    %rdx; CFI_ADJUST (-8);
-    popq    %rcx; CFI_ADJUST (-8);
-    popq    %rax; CFI_ADJUST (-8); 
-
+    POP_CALLER_SAVE_INT_REGS
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_drop_free))
+
+/* r10 = segment, r11 = block, rdi = is_local   
+   destroys rax
+*/
+FUNCTION(G(caml_rc_asm_free_generic))
+CFI_STARTPROC
+    /* pushq   %rax; CFI_ADJUST (8); */
+    pushq   %rcx; CFI_ADJUST (8);
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    /* pushq   %rdi; CFI_ADJUST (8); */
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    /* pushq   %r10; CFI_ADJUST (8); */
+    /* pushq   %r11; CFI_ADJUST (8); */
+
+    mov     %rdi, %rsi
+    mov     %r10, %rdi
+    mov     %r11, %rdx
+    PREPARE_FOR_C_CALL
+    call    GCALL(mi_free_generic)
+    CLEANUP_AFTER_C_CALL
+
+    /* popq    %r11; CFI_ADJUST (-8); */
+    /* popq    %r10; CFI_ADJUST (-8); */
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    /* popq    %rdi; CFI_ADJUST (-8);  */
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);
+    popq    %rcx; CFI_ADJUST (-8);
+    /* popq    %rax; CFI_ADJUST (-8); */
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_free_generic))
+
+/* rdi = page
+   destroys r10, r11, and rax
+*/
+FUNCTION(G(caml_rc_asm_page_retire))
+CFI_STARTPROC
+    /* pushq   %rax; CFI_ADJUST (8); */
+    pushq   %rcx; CFI_ADJUST (8);
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    /* pushq   %rdi; CFI_ADJUST (8); */
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    /* pushq   %r10; CFI_ADJUST (8); */
+    /* pushq   %r11; CFI_ADJUST (8); */
+
+    PREPARE_FOR_C_CALL
+    call    GCALL(_mi_page_retire)
+    CLEANUP_AFTER_C_CALL
+
+    /* popq    %r11; CFI_ADJUST (-8); */
+    /* popq    %r10; CFI_ADJUST (-8); */
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    /* popq    %rdi; CFI_ADJUST (-8);  */
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);
+    popq    %rcx; CFI_ADJUST (-8);
+    /* popq    %rax; CFI_ADJUST (-8); */
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_page_retire))
+
+
+/* r11 is the free argument; should not be NULL 
+   destroys: rdi (page), rax (temp), r10 (segment)
+*/
+FUNCTION(G(caml_rc_asm_free))
+CFI_STARTPROC
+  /* no need to test for NULL */
+  /* no need to do -1 since we won't have large alignments */
+  movq    %r11, %r10                 /* r11 for the block  */    
+  andq    $-67108864, %r10           /* r10 for the segment */
+  /* no need to test for NULL */
+  movq    %r11, %rax
+  subq    %r10, %rax
+  shrq    $16, %rax
+  leaq	  (%rax,%rax,4), %rax
+  salq	  $4, %rax
+  leaq	  392(%rax), %rdi
+  movl	  396(%r10,%rax), %eax     
+  subq	  %rax, %rdi     
+  addq	  %r10, %rdi                  /* rdi = page */
+	
+  movq    %fs:0, %rax                 /* rax = thread id */  
+  cmpq    376(%r10), %rax             /* thread_id == segment->thread_id ? */
+  jne     LBL(caml_rc_asm_free_slow)
+	cmpb	  $0, 14(%rdi)
+	jne	    LBL(caml_rc_asm_free_slow)
+	movq	  32(%rdi), %rax              /* block->next = page->local_free */
+	movq	  %rax, (%r11)              
+	subl	  $1, 24(%rdi)                /* page->used-- */
+	movq	  %r11, 32(%rdi)              /* page->local_free = block */
+	jz	    LBL(caml_rc_asm_free_retire)   /* is page empty ? */
+  ret
+
+LBL(caml_rc_asm_free_retire):
+  jmp     GCALL(caml_rc_asm_page_retire)     /* page in rdi */
+
+LBL(caml_rc_asm_free_slow):
+  xorl	  %edi, %edi
+	movq    %fs:0, %rax
+	cmpq	  376(%r10), %rax
+	sete	  %dil
+	jmp	    GCALL(caml_rc_asm_free_generic)  /* segment in r10, tid==thread_id in rdi, block still in r11 */
+
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_free))
+
+/*
+mi_free:
+.LFB674:
+	.cfi_startproc
+	endbr64
+	movq	%rdi, %rdx
+	testq	%rdi, %rdi
+	je	.L141
+	leaq	-1(%rdi), %r8
+	andq	$-67108864, %r8
+	je	.L141
+	movq	%rdi, %rax
+	subq	%r8, %rax
+	shrq	$16, %rax
+	leaq	(%rax,%rax,4), %rax
+	salq	$4, %rax
+	leaq	392(%rax), %rdi
+	movl	396(%r8,%rax), %eax
+#APP
+# 864 "/home/daan/home/dev/ocaml/mimalloc/include/mimalloc-internal.h" 1
+	movq %fs:0, %rcx
+# 0 "" 2
+#NO_APP
+	subq	%rax, %rdi
+	movq	376(%r8), %rax
+	addq	%r8, %rdi
+	cmpq	%rcx, %rax
+	jne	.L145
+	cmpb	$0, 14(%rdi)
+	jne	.L145
+	movq	32(%rdi), %rax
+	movq	%rax, (%rdx)
+	subl	$1, 24(%rdi)
+	movq	%rdx, 32(%rdi)
+	je	.L149
+.L141:
+	ret
+	.p2align 4,,10
+	.p2align 3
+.L149:
+	jmp	_mi_page_retire@PLT
+	.p2align 4,,10
+	.p2align 3
+.L145:
+	xorl	%esi, %esi
+	movq	%r8, %rdi
+	movq	376(%r8), %rax
+	cmpq	%rcx, %rax
+	sete	%sil
+	jmp	mi_free_generic
+	.cfi_endproc
+*/  
 
 /* r11 is the allocation size
    r11 is result register
@@ -528,32 +650,7 @@ CFI_STARTPROC
     pushq   %r10; CFI_ADJUST (8);
     pushq   %r11; CFI_ADJUST (8);
     */
-    /*
-    pushq   %r12; CFI_ADJUST (8);
-    pushq   %r13; CFI_ADJUST (8);
-    pushq   %r14; CFI_ADJUST (8);
-    pushq   %r15; CFI_ADJUST (8);
-    */
-
-    /* Save floating-point registers 
-    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-    movsd   %xmm0, 0*8(%rsp)
-    movsd   %xmm1, 1*8(%rsp)
-    movsd   %xmm2, 2*8(%rsp)
-    movsd   %xmm3, 3*8(%rsp)
-    movsd   %xmm4, 4*8(%rsp)
-    movsd   %xmm5, 5*8(%rsp)
-    movsd   %xmm6, 6*8(%rsp)
-    movsd   %xmm7, 7*8(%rsp)
-    movsd   %xmm8, 8*8(%rsp)
-    movsd   %xmm9, 9*8(%rsp)
-    movsd   %xmm10, 10*8(%rsp)
-    movsd   %xmm11, 11*8(%rsp)
-    movsd   %xmm12, 12*8(%rsp)
-    movsd   %xmm13, 13*8(%rsp)
-    movsd   %xmm14, 14*8(%rsp)
-    movsd   %xmm15, 15*8(%rsp)
-    */
+   
     
     /* Make the call; rdi = heap, rsi = size */
     movq    %r15, %rdi
@@ -564,33 +661,6 @@ CFI_STARTPROC
     CLEANUP_AFTER_C_CALL
     movq    %rax, %r11
 
-    /* Restore floating point registers 
-    movsd   0*8(%rsp), %xmm0
-    movsd   1*8(%rsp), %xmm1
-    movsd   2*8(%rsp), %xmm2
-    movsd   3*8(%rsp), %xmm3
-    movsd   4*8(%rsp), %xmm4
-    movsd   5*8(%rsp), %xmm5
-    movsd   6*8(%rsp), %xmm6
-    movsd   7*8(%rsp), %xmm7
-    movsd   8*8(%rsp), %xmm8
-    movsd   9*8(%rsp), %xmm9
-    movsd   10*8(%rsp), %xmm10
-    movsd   11*8(%rsp), %xmm11
-    movsd   12*8(%rsp), %xmm12
-    movsd   13*8(%rsp), %xmm13
-    movsd   14*8(%rsp), %xmm14
-    movsd   15*8(%rsp), %xmm15
-    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-    */
-
-    /* Restore caller-saved registers */
-    /*
-    popq    %r15; CFI_ADJUST (8);
-    popq    %r14; CFI_ADJUST (8);    
-    popq    %r13; CFI_ADJUST (8);
-    popq    %r12; CFI_ADJUST (8);    
-    */
     /*
     popq    %r11; CFI_ADJUST (-8);
     popq    %r10; CFI_ADJUST (-8);
@@ -606,7 +676,23 @@ CFI_STARTPROC
 CFI_ENDPROC
 ENDFUNCTION(G(caml_alloc_generic))
 
-
+/* 
+mi_heap_malloc_small:
+.LFB654:
+	.cfi_startproc
+	endbr64
+	leaq	7(%rsi), %rax
+	shrq	$3, %rax
+	movq	8(%rdi,%rax,8), %rax
+	movq	16(%rax), %r8
+	testq	%r8, %r8
+	je	.L73
+	movq	(%r8), %rdx
+	addl	$1, 24(%rax)
+	movq	%rdx, 16(%rax)
+	movq	%r8, %rax
+	ret
+*/
 
 /* r11 = size to allocate
    r11 = result 
