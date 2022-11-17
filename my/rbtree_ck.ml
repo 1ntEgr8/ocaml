@@ -1,6 +1,5 @@
 (* Adapted from https://github.com/leanprover/lean4/blob/IFL19/tests/bench/rbmap.ml *)
-(* > ocamlopt -O2 -g -o rbtree_ck my/rbtree_ck.ml
-*)
+(* > ocamlopt -O2 -g -o rbtree_ck my/rbtree_ck.ml *)
 open List;;
 
 type color =
