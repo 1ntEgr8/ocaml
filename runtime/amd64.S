@@ -518,15 +518,13 @@ ENDFUNCTION(G(caml_rc_asm_free))
 */
 FUNCTION(G(caml_rc_asm_mi_alloc_generic))
 CFI_STARTPROC
-    PUSH_CALLER_SAVE_INT_BASE_REGS
-    
-    movq    %r15, C_ARG_1
+    PUSH_CALLER_SAVE_INT_BASE_REGS    
+    movq    %r15, C_ARG_1             /* r14 = Caml_state, r15 = mimalloc heap pointer */
     movq    %r11, C_ARG_2
     PREPARE_FOR_C_CALL
     call    GCALL(rc_mi_heap_alloc)   /* rax has the result */
     CLEANUP_AFTER_C_CALL
     movq    %rax, %r11
-
     POP_CALLER_SAVE_INT_BASE_REGS     /* ensure r11 is not overwritten! */
     ret
 CFI_ENDPROC
