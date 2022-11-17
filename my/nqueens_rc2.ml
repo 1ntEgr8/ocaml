@@ -15,7 +15,7 @@ let rec append_safe queen xs xss =
     rc_drop xs;
     xss
   end
-  else if (safe queen 1 xs) then begin
+  else if (safe queen 1 xs (*borrow*)) then begin
     rc_dup xs;
     append_safe (queen - 1) xs ((queen :: xs) :: xss)
   end
