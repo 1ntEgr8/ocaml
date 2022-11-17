@@ -264,10 +264,10 @@
         subq    $(16*6), %rsp; CFI_ADJUST (16*6); \
         movsd   %xmm0, 0*8(%rsp); \
         movsd   %xmm1, 1*8(%rsp); \
-        movsd   %xmm2, 2*8(%rsp; \
-        movsd   %xmm3, 3*8(%rsp; \
-        movsd   %xmm4, 4*8(%rsp; \
-        movsd   %xmm5, 5*8(%rsp;
+        movsd   %xmm2, 2*8(%rsp); \
+        movsd   %xmm3, 3*8(%rsp); \
+        movsd   %xmm4, 4*8(%rsp); \
+        movsd   %xmm5, 5*8(%rsp);
 
 
 #define POP_CALLER_SAVE_FP_REGS \
@@ -327,20 +327,20 @@
         subq    $(16*8), %rsp; CFI_ADJUST (16*8); \
         movsd   %xmm0, 0*8(%rsp); \
         movsd   %xmm1, 1*8(%rsp); \
-        movsd   %xmm2, 2*8(%rsp; \
-        movsd   %xmm3, 3*8(%rsp; \
-        movsd   %xmm4, 4*8(%rsp; \
-        movsd   %xmm5, 5*8(%rsp; \
-        movsd   %xmm6, 6*8(%rsp; \
-        movsd   %xmm7, 7*8(%rsp; \
-        movsd   %xmm8, 8*8(%rsp; \
-        movsd   %xmm9, 9*8(%rsp; \
-        movsd   %xmm10, 10*8(%rsp; \
-        movsd   %xmm11, 11*8(%rsp; \
-        movsd   %xmm12, 12*8(%rsp; \
-        movsd   %xmm13, 13*8(%rsp; \
-        movsd   %xmm14, 14*8(%rsp; \
-        movsd   %xmm15, 15*8(%rsp; 
+        movsd   %xmm2, 2*8(%rsp); \
+        movsd   %xmm3, 3*8(%rsp); \
+        movsd   %xmm4, 4*8(%rsp); \
+        movsd   %xmm5, 5*8(%rsp); \
+        movsd   %xmm6, 6*8(%rsp); \
+        movsd   %xmm7, 7*8(%rsp); \
+        movsd   %xmm8, 8*8(%rsp); \
+        movsd   %xmm9, 9*8(%rsp); \
+        movsd   %xmm10, 10*8(%rsp); \
+        movsd   %xmm11, 11*8(%rsp); \
+        movsd   %xmm12, 12*8(%rsp); \
+        movsd   %xmm13, 13*8(%rsp); \
+        movsd   %xmm14, 14*8(%rsp); \
+        movsd   %xmm15, 15*8(%rsp);
 
 #define POP_CALLER_SAVE_FP_REGS \
         movsd   0*8(%rsp), %xmm0; \
@@ -364,11 +364,11 @@
 #endif
 
 #define PUSH_CALLER_SAVE_REGS \
-        PUSH_CALLER_SAVE_INT_REGS \
+        PUSH_CALLER_SAVE_INT_REGS; \
         PUSH_CALLER_SAVE_FP_REGS
 
 #define POP_CALLER_SAVE_REGS \
-        POP_CALLER_SAVE_INT_REGS \
+        POP_CALLER_SAVE_INT_REGS; \
         POP_CALLER_SAVE_FP_REGS
 
 
@@ -416,75 +416,175 @@ G(caml_system__code_begin):
         ret  /* just one instruction, so that debuggers don't display
         caml_system__code_begin instead of caml_call_gc */
 
-/* Refcount */
+/* ----------------------------------------------------------------------
+   Reference counting primitives
+   Written in assembly to avoid calling into C which requires saving
+   the caller-save registers
+-----------------------------------------------------------------------*/   
 
-
-
-/* r11: the dup argument; guaranteed pointer
+/* dup an atomic reference count
+   r11: the dup argument; guaranteed pointer
    TODO: implement sticky range
 */   
-FUNCTION(G(caml_dup_atomic))
+FUNCTION(G(caml_rc_asm_dup_atomic))
 CFI_STARTPROC
     lock    decl -4(%r11) 
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_dup_atomic))
+ENDFUNCTION(G(caml_rc_asm_dup_atomic))
 
-/* r11: the drop argument; guaranteed pointer
+/* drop an atomic reference count
+   r11: the drop argument; guaranteed pointer
    TODO: implement sticky range
 */   
-FUNCTION(G(caml_drop_atomic))
+FUNCTION(G(caml_rc_asm_drop_atomic))
 CFI_STARTPROC
-    lock  incl -4(%r11)         /* todo: atomic drop correctly with sticky range */
+    lock  incl -4(%r11)         /* todo: atomic drop correctly with sticky range and possibly free */
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_drop_atomic))
+ENDFUNCTION(G(caml_rc_asm_drop_atomic))
 
-/* r11 is the argument */
-FUNCTION(G(caml_free))
-CFI_STARTPROC
-    PUSH_CALLER_SAVE_INT_REGS    
-    movq    %r11, %rdi          /* rdi is first argument on Unix */
-    PREPARE_FOR_C_CALL
-    call    GCALL(rc_free)
-    CLEANUP_AFTER_C_CALL
-    POP_CALLER_SAVE_INT_REGS
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_free))
-
-/* r11 is the drop argument 
-*/
-FUNCTION(G(caml_drop_free))
+/* generic drop children and free the block
+   r11 is the drop argument  */
+FUNCTION(G(caml_rc_asm_drop_free))
 CFI_STARTPROC
     PUSH_CALLER_SAVE_INT_REGS
-    movq    %r11, %rdi             /* rdi is first arg on unix */
+    movq    %r11, C_ARG_1
     PREPARE_FOR_C_CALL
     call    GCALL(rc_drop_free)
     CLEANUP_AFTER_C_CALL
     POP_CALLER_SAVE_INT_REGS
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_drop_free))
+ENDFUNCTION(G(caml_rc_asm_drop_free))
 
-/* r10 = segment, r11 = block, rdi = is_local   
-   destroys rax
+
+/* generic malloc:
+   r11 = size to allocate
+   r11 = result 
 */
-FUNCTION(G(caml_rc_asm_free_generic))
+FUNCTION(G(caml_rc_asm_alloc))
+CFI_STARTPROC
+    PUSH_CALLER_SAVE_REGS
+    movq    %r11, C_ARG_1
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_alloc)
+    CLEANUP_AFTER_C_CALL    
+    movq    %rax, %r11     /* Move the result into r11 */
+    POP_CALLER_SAVE_REGS
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_alloc))
+
+
+/* generic free: r11 is the argument */
+FUNCTION(G(caml_rc_asm_free))
+CFI_STARTPROC
+    PUSH_CALLER_SAVE_REGS
+    movq    %r11, C_ARG_1
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_free)
+    CLEANUP_AFTER_C_CALL
+    POP_CALLER_SAVE_REGS
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_free))
+
+
+/* ----------------------------------------------------------------------
+   Reference counting primitives
+   Inlined definitions for mi_malloc's  mi_free and mi_alloc. We assume
+   we can compile mimalloc without using FP registers and thus don't need
+   to save those.
+
+   The fast path for mi_malloc is emitted inline (`emit.mlp`) to specialize
+   for the size.
+
+   While the mi_free fast path is written in assembly here to avoid 
+   saving too many registers.
+-----------------------------------------------------------------------*/   
+
+
+/* Generic mi_malloc allocation (the fast path is emitted inline) 
+   r11 is the allocation size
+   r11 is result register
+*/
+FUNCTION(G(caml_rc_asm_mi_alloc_generic))
+CFI_STARTPROC
+    /* Save caller-saved registers */
+    pushq   %rax; CFI_ADJUST (8); 
+    pushq   %rcx; CFI_ADJUST (8); 
+    pushq   %rdx; CFI_ADJUST (8);
+    pushq   %rsi; CFI_ADJUST (8);
+    pushq   %rdi; CFI_ADJUST (8); 
+    pushq   %r8; CFI_ADJUST (8);
+    pushq   %r9; CFI_ADJUST (8);
+    /*
+    pushq   %r10; CFI_ADJUST (8);
+    pushq   %r11; CFI_ADJUST (8);
+    */
+   
+    /* Make the call; (heap,size) */
+    movq    %r15, C_ARG_1
+    movq    %r11, C_ARG_2
+    
+    PREPARE_FOR_C_CALL
+    call    GCALL(rc_mi_heap_alloc)   /* rax has the result */
+    CLEANUP_AFTER_C_CALL
+    movq    %rax, %r11
+
+    /*
+    popq    %r11; CFI_ADJUST (-8);
+    popq    %r10; CFI_ADJUST (-8);
+    */
+    popq    %r9; CFI_ADJUST (-8);
+    popq    %r8; CFI_ADJUST (-8);
+    popq    %rdi; CFI_ADJUST (-8); 
+    popq    %rsi; CFI_ADJUST (-8);
+    popq    %rdx; CFI_ADJUST (-8);    
+    popq    %rcx; CFI_ADJUST (-8); 
+    popq    %rax; CFI_ADJUST (-8); 
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_mi_alloc_generic))
+
+/* The emitted fast-path comes from inspecting mimalloc generated assembly for mi_heap_malloc_small (using -DMI_SEE_ASM=ON) */
+/* 
+mi_heap_malloc_small:
+	endbr64
+	leaq	7(%rsi), %rax
+	shrq	$3, %rax
+	movq	8(%rdi,%rax,8), %rax
+	movq	16(%rax), %r8
+	testq	%r8, %r8
+	je	.L73  
+	movq	(%r8), %rdx
+	addl	$1, 24(%rax)
+	movq	%rdx, 16(%rax)
+	movq	%r8, %rax
+	ret
+*/
+
+
+/* mimalloc generic free path 
+   r11 = segment, r10 = block, rax = is_local   
+   destroys r11, r10, rax
+*/
+FUNCTION(G(caml_rc_asm_mi_free_generic))
 CFI_STARTPROC
     /* pushq   %rax; CFI_ADJUST (8); */
     pushq   %rcx; CFI_ADJUST (8);
     pushq   %rdx; CFI_ADJUST (8);
     pushq   %rsi; CFI_ADJUST (8);
-    /* pushq   %rdi; CFI_ADJUST (8); */
+    pushq   %rdi; CFI_ADJUST (8); 
     pushq   %r8; CFI_ADJUST (8);
     pushq   %r9; CFI_ADJUST (8);
     /* pushq   %r10; CFI_ADJUST (8); */
     /* pushq   %r11; CFI_ADJUST (8); */
 
-    mov     %rdi, %rsi
-    mov     %r10, %rdi
-    mov     %r11, %rdx
+    mov     %r11, C_ARG_1   
+    mov     %rax, C_ARG_2   
+    mov     %r10, C_ARG_3
     PREPARE_FOR_C_CALL
     call    GCALL(mi_free_generic)
     CLEANUP_AFTER_C_CALL
@@ -493,30 +593,31 @@ CFI_STARTPROC
     /* popq    %r10; CFI_ADJUST (-8); */
     popq    %r9; CFI_ADJUST (-8);
     popq    %r8; CFI_ADJUST (-8);
-    /* popq    %rdi; CFI_ADJUST (-8);  */
+    popq    %rdi; CFI_ADJUST (-8);  
     popq    %rsi; CFI_ADJUST (-8);
     popq    %rdx; CFI_ADJUST (-8);
     popq    %rcx; CFI_ADJUST (-8);
     /* popq    %rax; CFI_ADJUST (-8); */
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_free_generic))
+ENDFUNCTION(G(caml_rc_asm_mi_free_generic))
 
-/* rdi = page
+/* r10 = page
    destroys r10, r11, and rax
 */
-FUNCTION(G(caml_rc_asm_page_retire))
+FUNCTION(G(caml_rc_asm_mi_page_retire))
 CFI_STARTPROC
     /* pushq   %rax; CFI_ADJUST (8); */
     pushq   %rcx; CFI_ADJUST (8);
     pushq   %rdx; CFI_ADJUST (8);
     pushq   %rsi; CFI_ADJUST (8);
-    /* pushq   %rdi; CFI_ADJUST (8); */
+    pushq   %rdi; CFI_ADJUST (8); 
     pushq   %r8; CFI_ADJUST (8);
     pushq   %r9; CFI_ADJUST (8);
     /* pushq   %r10; CFI_ADJUST (8); */
     /* pushq   %r11; CFI_ADJUST (8); */
 
+    movq    %r10, C_ARG_1
     PREPARE_FOR_C_CALL
     call    GCALL(_mi_page_retire)
     CLEANUP_AFTER_C_CALL
@@ -525,61 +626,70 @@ CFI_STARTPROC
     /* popq    %r10; CFI_ADJUST (-8); */
     popq    %r9; CFI_ADJUST (-8);
     popq    %r8; CFI_ADJUST (-8);
-    /* popq    %rdi; CFI_ADJUST (-8);  */
+    popq    %rdi; CFI_ADJUST (-8);  
     popq    %rsi; CFI_ADJUST (-8);
     popq    %rdx; CFI_ADJUST (-8);
     popq    %rcx; CFI_ADJUST (-8);
     /* popq    %rax; CFI_ADJUST (-8); */
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_page_retire))
+ENDFUNCTION(G(caml_rc_asm_mi_page_retire))
 
 
-/* r11 is the free argument; should not be NULL 
-   destroys: rdi (page), rax (temp), r10 (segment)
+/* r11 is the free argument pointing to the heap block (!) (i.e. the OCaml header); should not be NULL 
+   destroys: rax (temp), r10 (segment/block)
+   note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
 */
-FUNCTION(G(caml_rc_asm_free))
+FUNCTION(G(caml_rc_asm_mi_free))
 CFI_STARTPROC
   /* no need to test for NULL */
   /* no need to do -1 since we won't have large alignments */
-  movq    %r11, %r10                 /* r11 for the block  */    
-  andq    $-67108864, %r10           /* r10 for the segment */
-  /* no need to test for NULL */
+  pushq   %r11                       /* save block on stack */
   movq    %r11, %rax
-  subq    %r10, %rax
+  andq    $-67108864, %r11           /* r11 for the segment now (r11 &= ~(0x4000000 - 1)) */
+  
+  subq    %r11, %rax
   shrq    $16, %rax
   leaq	  (%rax,%rax,4), %rax
   salq	  $4, %rax
-  leaq	  392(%rax), %rdi
-  movl	  396(%r10,%rax), %eax     
-  subq	  %rax, %rdi     
-  addq	  %r10, %rdi                  /* rdi = page */
+  leaq	  392(%rax), %r10
+  movl	  396(%r11,%rax), %eax     
+  subq	  %rax, %r10     
+  addq	  %r11, %r10                  /* r10 = page */
 	
-  movq    %fs:0, %rax                 /* rax = thread id */  
-  cmpq    376(%r10), %rax             /* thread_id == segment->thread_id ? */
+  /* on entry: block on the stack, r11 is the segment, r10 is the page */
+  /* note: we can potentially skip the thread local check as we only call mi_free if the block was unique and not thread shared */
+  movq    %fs:0, %rax                 /* rax = thread id */
+  cmpq    376(%r11), %rax             /* thread_id == segment->thread_id ? */
   jne     LBL(caml_rc_asm_free_slow)
-	cmpb	  $0, 14(%rdi)
+	cmpb	  $0, 14(%r10)                /* page is not full or aligned? */
 	jne	    LBL(caml_rc_asm_free_slow)
-	movq	  32(%rdi), %rax              /* block->next = page->local_free */
-	movq	  %rax, (%r11)              
-	subl	  $1, 24(%rdi)                /* page->used-- */
-	movq	  %r11, 32(%rdi)              /* page->local_free = block */
-	jz	    LBL(caml_rc_asm_free_retire)   /* is page empty ? */
+  
+  popq    %r11                        /* r11 is the block again (we don't need the segment anymore) */
+	movq	  32(%r10), %rax              
+	movq	  %rax, (%r11)                /* block->next = page->local_free */
+	subl	  $1, 24(%r10)                /* page->used-- */
+	movq	  %r11, 32(%r10)              /* page->local_free = block */
+	jz	    LBL(caml_rc_asm_free_retire)   /* is page empty? */
   ret
 
 LBL(caml_rc_asm_free_retire):
-  jmp     GCALL(caml_rc_asm_page_retire)     /* page in rdi */
+  /* on entry: nothing on the stack, r10 is the page */
+  jmp     GCALL(caml_rc_asm_mi_page_retire)     
 
 LBL(caml_rc_asm_free_slow):
-  xorl	  %edi, %edi
-	movq    %fs:0, %rax
-	cmpq	  376(%r10), %rax
-	sete	  %dil
-	jmp	    GCALL(caml_rc_asm_free_generic)  /* segment in r10, tid==thread_id in rdi, block still in r11 */
+  /* on entry: block on the stack, r11 is the segment */
+  xorl	  %eax, %eax                          
+	movq    %fs:0, %r10                         /* note: page is no longer needed */
+	cmpq	  376(%r11), %r10
+	sete	  %al                                 /* rax= (tid==thread_id) */
+  pop     %r10                                /* pop block in r10 */
+	jmp	    GCALL(caml_rc_asm_mi_free_generic)  /* segment in r11, tid==thread_id in rax, block in r10 */
 
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_free))
+ENDFUNCTION(G(caml_rc_asm_mi_free))
 
+/* The code above comes from inspecting mimalloc generated assembly for mi_free (using -DMI_SEE_ASM=ON) */
 /*
 mi_free:
 .LFB674:
@@ -633,153 +743,10 @@ mi_free:
 	.cfi_endproc
 */  
 
-/* r11 is the allocation size
-   r11 is result register
-*/
-FUNCTION(G(caml_alloc_generic))
-CFI_STARTPROC
-    /* Save caller-saved registers */
-    pushq   %rax; CFI_ADJUST (8); 
-    pushq   %rcx; CFI_ADJUST (8); 
-    pushq   %rdx; CFI_ADJUST (8);
-    pushq   %rsi; CFI_ADJUST (8);
-    pushq   %rdi; CFI_ADJUST (8); 
-    pushq   %r8; CFI_ADJUST (8);
-    pushq   %r9; CFI_ADJUST (8);
-    /*
-    pushq   %r10; CFI_ADJUST (8);
-    pushq   %r11; CFI_ADJUST (8);
-    */
-   
-    
-    /* Make the call; rdi = heap, rsi = size */
-    movq    %r15, %rdi
-    movq    %r11, %rsi
-    
-    PREPARE_FOR_C_CALL
-    call    GCALL(rc_mi_heap_alloc)   /* rax has the result */
-    CLEANUP_AFTER_C_CALL
-    movq    %rax, %r11
 
-    /*
-    popq    %r11; CFI_ADJUST (-8);
-    popq    %r10; CFI_ADJUST (-8);
-    */
-    popq    %r9; CFI_ADJUST (-8);
-    popq    %r8; CFI_ADJUST (-8);
-    popq    %rdi; CFI_ADJUST (-8); 
-    popq    %rsi; CFI_ADJUST (-8);
-    popq    %rdx; CFI_ADJUST (-8);    
-    popq    %rcx; CFI_ADJUST (-8); 
-    popq    %rax; CFI_ADJUST (-8); 
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_alloc_generic))
-
-/* 
-mi_heap_malloc_small:
-.LFB654:
-	.cfi_startproc
-	endbr64
-	leaq	7(%rsi), %rax
-	shrq	$3, %rax
-	movq	8(%rdi,%rax,8), %rax
-	movq	16(%rax), %r8
-	testq	%r8, %r8
-	je	.L73
-	movq	(%r8), %rdx
-	addl	$1, 24(%rax)
-	movq	%rdx, 16(%rax)
-	movq	%r8, %rax
-	ret
-*/
-
-/* r11 = size to allocate
-   r11 = result 
-*/
-FUNCTION(G(caml_rc_alloc))
-CFI_STARTPROC
-    /* Save caller-saved registers */
-    pushq   %rax; CFI_ADJUST (8);
-    pushq   %rcx; CFI_ADJUST (8);
-    pushq   %rdx; CFI_ADJUST (8);
-    pushq   %rsi; CFI_ADJUST (8);
-    pushq   %rdi; CFI_ADJUST (8);
-    pushq   %r8; CFI_ADJUST (8);
-    pushq   %r9; CFI_ADJUST (8);
-    /*
-    pushq   %r10; CFI_ADJUST (8);
-    pushq   %r11; CFI_ADJUST (8);
-    */
-    subq    $(16*8), %rsp; CFI_ADJUST (16*8);
-    movsd   %xmm0, 0*8(%rsp)
-    movsd   %xmm1, 1*8(%rsp)
-    movsd   %xmm2, 2*8(%rsp)
-    movsd   %xmm3, 3*8(%rsp)
-    movsd   %xmm4, 4*8(%rsp)
-    movsd   %xmm5, 5*8(%rsp)
-    movsd   %xmm6, 6*8(%rsp)
-    movsd   %xmm7, 7*8(%rsp)
-    movsd   %xmm8, 8*8(%rsp)
-    movsd   %xmm9, 9*8(%rsp)
-    movsd   %xmm10, 10*8(%rsp)
-    movsd   %xmm11, 11*8(%rsp)
-    movsd   %xmm12, 12*8(%rsp)
-    movsd   %xmm13, 13*8(%rsp)
-    movsd   %xmm14, 14*8(%rsp)
-    movsd   %xmm15, 15*8(%rsp)
-
-    /* Pass argument into C */
-    movq    %r11, %rdi
-
-    /* Make the call */
-    PREPARE_FOR_C_CALL
-    call    GCALL(rc_alloc)
-    CLEANUP_AFTER_C_CALL
-
-    /* Move the result into %r11 */
-    movq    %rax, %r11
-
-    /* Restore caller-saved registers */
-    movsd   0*8(%rsp), %xmm0
-    movsd   1*8(%rsp), %xmm1
-    movsd   2*8(%rsp), %xmm2
-    movsd   3*8(%rsp), %xmm3
-    movsd   4*8(%rsp), %xmm4
-    movsd   5*8(%rsp), %xmm5
-    movsd   6*8(%rsp), %xmm6
-    movsd   7*8(%rsp), %xmm7
-    movsd   8*8(%rsp), %xmm8
-    movsd   9*8(%rsp), %xmm9
-    movsd   10*8(%rsp), %xmm10
-    movsd   11*8(%rsp), %xmm11
-    movsd   12*8(%rsp), %xmm12
-    movsd   13*8(%rsp), %xmm13
-    movsd   14*8(%rsp), %xmm14
-    movsd   15*8(%rsp), %xmm15
-    addq    $(16*8), %rsp; CFI_ADJUST(-16*8)
-
-    /*
-    popq    %r11; CFI_ADJUST (-8);
-    popq    %r10; CFI_ADJUST (-8);
-    */
-    popq    %r9; CFI_ADJUST (-8);
-    popq    %r8; CFI_ADJUST (-8);
-    popq    %rdi; CFI_ADJUST (-8);
-    popq    %rsi; CFI_ADJUST (-8);
-    popq    %rdx; CFI_ADJUST (-8);
-    popq    %rcx; CFI_ADJUST (-8);
-    popq    %rax; CFI_ADJUST (-8);
-
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_alloc))
-
-
-
-
-
-
+/* ----------------------------------------------------------------------
+   Old GC allocation code
+-----------------------------------------------------------------------*/   
 
 /* Allocation */
 
@@ -915,6 +882,11 @@ CFI_STARTPROC
         ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_allocN))
+
+
+/* ----------------------------------------------------------------------
+   Other
+-----------------------------------------------------------------------*/   
 
 /* Call a C function from OCaml */
 

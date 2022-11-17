@@ -134,7 +134,7 @@ let phys_reg n =
 
 
 let rax = phys_reg 0
-let rdi = phys_reg 2 
+(* let rdi = phys_reg 2 *)
 let rdx = phys_reg 4
 let r10 = phys_reg 10
 let r11 = phys_reg 11
@@ -318,11 +318,12 @@ let destroyed_at_oper = function
   | Iop(Iintop(Idiv | Imod)) | Iop(Iintop_imm((Idiv | Imod), _))
         -> [| rax; rdx |]
   | Iop(Istore(Single, _, _)) -> [| rxmm15 |]
-  | Iop(Ialloc _ | Ipoll _) -> destroyed_at_alloc_or_poll
+  | Iop(Ipoll _) -> destroyed_at_alloc_or_poll
   | Iop(Iintop(Imulh | Icomp _) | Iintop_imm((Icomp _), _))
         -> [| rax |]
   | Iop(Idrop _) | Iop(Idup _) | Iop(Idupcopy _) | Iop(Idecr) -> [| r11 |]  
-  | Iop(Ifree) -> [| r11; r10; rax; rdi |] 
+  | Iop(Ialloc _) ->  [| r10 ; r11 |]  
+  | Iop(Ifree) -> [| r10; r11; rax |]
   | Iop(Icopy) -> [| |]
   | Iswitch(_, _) -> [| rax; rdx |]
   | Itrywith _ -> [| r11 |]

@@ -323,8 +323,8 @@ method is_simple_expr = function
   | Cop(op, args, _) ->
       begin match op with
         (* pure externals *)
-      | Cextcall("caml_rc_is_unique", _, _, _) -> Printf.printf "is simple\n"; List.for_all self#is_simple_expr args
-      | Cextcall(fn, _, _, _) -> Printf.printf "%s is not simple\n" fn; false
+      | Cextcall("caml_rc_is_unique", _, _, _) -> List.for_all self#is_simple_expr args
+      | Cextcall(_, _, _, _) -> false
         (* The following may have side effects *)
       | Capply _  | Calloc | Cstore _ | Craise _ | Copaque -> false
         (* The remaining operations are simple if their args are *)
