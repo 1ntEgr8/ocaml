@@ -154,9 +154,18 @@ let rec mk_map_aux freq n m acc =
   
 let mk_map freq n = mk_map_aux freq n Leaf [];;
 
+let head xs =
+  match xs with
+  | x :: xx -> begin
+     let x = rc_copy x in
+     let xx = rc_copy xx in     
+     if (rc_is_unique xs) then begin (* rc_drop xx; *) (*ouch, leads to a crash *) rc_free xs end else begin rc_dup x; rc_decr xs end;
+     x
+    end;;
+
 let main freq n =
 let ms = mk_map freq n in
-let v = fold (fun k v r -> if v then r + 1 else r) (List.hd ms) 0 in
+let v = fold (fun k v r -> if v then r + 1 else r) (head ms) 0 in
 Printf.printf "%8d\n" v;
 v;;
 
