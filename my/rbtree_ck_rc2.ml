@@ -154,12 +154,25 @@ let rec mk_map_aux freq n m acc =
   
 let mk_map freq n = mk_map_aux freq n Leaf [];;
 
+
+
+let rec drop_list xs =
+  match xs with
+  | x :: xx -> begin
+     let x = rc_copy x in
+     let xx = rc_copy xx in     
+     if (rc_is_unique xs) then begin rc_drop x; rc_free xs end else begin rc_dup xx; rc_decr xs end;
+     drop_list xx
+    end
+  | [] -> ()
+
+
 let head xs =
   match xs with
   | x :: xx -> begin
      let x = rc_copy x in
      let xx = rc_copy xx in     
-     if (rc_is_unique xs) then begin (* rc_drop xx; *) (*ouch, leads to a crash *) rc_free xs end else begin rc_dup x; rc_decr xs end;
+     if (rc_is_unique xs) then begin drop_list xx; rc_free xs end else begin rc_dup x; rc_decr xs end;
      x
     end;;
 
