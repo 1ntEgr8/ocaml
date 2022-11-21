@@ -570,18 +570,18 @@ CFI_STARTPROC
   andq    $-33554432, %r11           /* r11 for the segment  (r11 &= ~(0x2000000 - 1)) = 32MiB segments */
   
   subq    %r11, %rax
-  shrq    $15, %rax                   /* 32KiB pages */
+  shrq    $16, %rax                   /* 32KiB pages */
   leaq	  (%rax,%rax,4), %rax         /* rax *= 5 */
   salq	  $4, %rax
-  leaq	  392(%rax), %r10
-  movl	  396(%r11,%rax), %eax     
+  leaq	  264(%rax), %r10
+  movl	  268(%r11,%rax), %eax     
   subq	  %rax, %r10     
   addq	  %r11, %r10                  /* r10 = page */
 	
   /* on entry: block on the stack, r11 is the segment, r10 is the page */
   /* note: we can potentially skip the thread local check as we only call mi_free if the block was unique and not thread shared */
   movq    %fs:0, %rax                 /* rax = thread id */
-  cmpq    384(%r11), %rax             /* thread_id == segment->thread_id ? */
+  cmpq    256(%r11), %rax             /* thread_id == segment->thread_id ? */
   popq    %rax                        /* load rax to point to the block */  
   jne     GCALL(caml_rc_asm_mi_free_generic_nonlocal) /* tail call */
 	cmpb	  $0, 14(%r10)                /* page is not full or aligned? */
@@ -662,17 +662,17 @@ mi_free:
 	movq	%rcx, %rax
 	andq	$-33554432, %rdi
 	subq	%rdi, %rax
-	shrq	$15, %rax
+	shrq	$16, %rax
 	leaq	(%rax,%rax,4), %rax
 	salq	$4, %rax
-	leaq	392(%rax), %rsi
+	leaq	264(%rax), %rsi
 #APP
 # 867 "/home/daan/home/dev/mimalloc/include/mimalloc-internal.h" 1
 	movq %fs:0, %r8
 # 0 "" 2
 #NO_APP
-	movq	384(%rdi), %rdx
-	movl	396(%rdi,%rax), %eax
+	movq	256(%rdi), %rdx
+	movl	268(%rdi,%rax), %eax
 	subq	%rax, %rsi
 	addq	%rdi, %rsi
 	cmpq	%rdx, %r8
