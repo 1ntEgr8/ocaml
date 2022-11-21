@@ -532,39 +532,106 @@ ENDFUNCTION(G(caml_rc_asm_mi_alloc_generic))
 
 
 /* The emitted fast-path comes from inspecting mimalloc generated assembly for mi_heap_malloc_small (using -DMI_SEE_ASM=ON) */
-/* 
+/* rdi=heap, rsi=size
 mi_heap_malloc_small:
+.LFB654:
+	.cfi_startproc
 	endbr64
 	leaq	7(%rsi), %rax
 	shrq	$3, %rax
 	movq	8(%rdi,%rax,8), %rax
 	movq	16(%rax), %r8
 	testq	%r8, %r8
-	je	.L73  
+	je	.L52
 	movq	(%r8), %rdx
 	addl	$1, 24(%rax)
 	movq	%rdx, 16(%rax)
 	movq	%r8, %rax
 	ret
+	.p2align 4,,10
+	.p2align 3
+.L52:
+	xorl	%ecx, %ecx        // zero?
+	xorl	%edx, %edx        // huge_alignment
+	jmp	_mi_malloc_generic@PLT
 */
 
 
-/* mimalloc generic free path 
-   r11 = segment, r10 = block, rax = is_local   
+/* r11 is the free argument pointing to the heap block (!) (i.e. the OCaml header); should not be NULL 
+   destroys: rax (temp), r10 (segment/block) (and r11)
+   note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
 */
-FUNCTION(G(caml_rc_asm_mi_free_generic))
+FUNCTION(G(caml_rc_asm_mi_free))
+CFI_STARTPROC
+  /* no need to test for NULL */
+  /* no need to do -1 since we won't have large alignments */
+  pushq   %r11                       /* save block on stack (later pop'd in rax) */
+  movq    %r11, %rax
+  andq    $-33554432, %r11           /* r11 for the segment  (r11 &= ~(0x2000000 - 1)) = 32MiB segments */
+  
+  subq    %r11, %rax
+  shrq    $15, %rax                   /* 32KiB pages */
+  leaq	  (%rax,%rax,4), %rax         /* rax *= 5 */
+  salq	  $4, %rax
+  leaq	  392(%rax), %r10
+  movl	  396(%r11,%rax), %eax     
+  subq	  %rax, %r10     
+  addq	  %r11, %r10                  /* r10 = page */
+	
+  /* on entry: block on the stack, r11 is the segment, r10 is the page */
+  /* note: we can potentially skip the thread local check as we only call mi_free if the block was unique and not thread shared */
+  movq    %fs:0, %rax                 /* rax = thread id */
+  cmpq    384(%r11), %rax             /* thread_id == segment->thread_id ? */
+  popq    %rax                        /* load rax to point to the block */  
+  jne     GCALL(caml_rc_asm_mi_free_generic_nonlocal) /* tail call */
+	cmpb	  $0, 14(%r10)                /* page is not full or aligned? */
+	jne	    GCALL(caml_rc_asm_mi_free_generic_local)    /* tail call */
+  
+  movq	  32(%r10), %r11              /* overwrite r11, the segment, as we don't need it anymore */              
+	movq	  %r11, (%rax)                /* block->next = page->local_free */
+	subl	  $1, 24(%r10)                /* page->used-- */
+	movq	  %rax, 32(%r10)              /* page->local_free = block */
+	jz	    GCALL(caml_rc_asm_mi_page_retire)  /* is page empty? (then tail call) */
+  ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_mi_free))
+
+
+/* mimalloc generic free path (non thread local)
+   r11 = segment, r10 = page, rax = block   
+*/
+FUNCTION(G(caml_rc_asm_mi_free_generic_nonlocal))
 CFI_STARTPROC
     PUSH_CALLER_SAVE_INT_BASE_REGS    /* todo: don't need to save rax ? */
-    mov     %r11, C_ARG_1   
-    mov     %rax, C_ARG_2   
-    mov     %r10, C_ARG_3
+    movq    %r11, C_ARG_1   
+    movq    %r10, C_ARG_2   
+    xorq    C_ARG_3, C_ARG_3
+    movq    %rax, C_ARG_4
     PREPARE_FOR_C_CALL
-    call    GCALL(mi_free_generic)
+    call    GCALL(_mi_free_generic)
     CLEANUP_AFTER_C_CALL
     POP_CALLER_SAVE_INT_BASE_REGS
     ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_mi_free_generic))
+ENDFUNCTION(G(caml_rc_asm_mi_free_generic_nonlocal))
+
+/* mimalloc generic free path (thread local)
+   r11 = segment, r10 = page, rax = block   
+*/
+FUNCTION(G(caml_rc_asm_mi_free_generic_local))
+CFI_STARTPROC
+    PUSH_CALLER_SAVE_INT_BASE_REGS    /* todo: don't need to save rax ? */
+    movq    %r11, C_ARG_1   
+    movq    %r10, C_ARG_2   
+    movq    $1, C_ARG_3
+    movq    %rax, C_ARG_4
+    PREPARE_FOR_C_CALL
+    call    GCALL(_mi_free_generic)
+    CLEANUP_AFTER_C_CALL
+    POP_CALLER_SAVE_INT_BASE_REGS
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_mi_free_generic_local))
 
 /* r10 = page
    destroys r11
@@ -582,111 +649,58 @@ CFI_ENDPROC
 ENDFUNCTION(G(caml_rc_asm_mi_page_retire))
 
 
-/* r11 is the free argument pointing to the heap block (!) (i.e. the OCaml header); should not be NULL 
-   destroys: rax (temp), r10 (segment/block) (and r11)
-   note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
-*/
-FUNCTION(G(caml_rc_asm_mi_free))
-CFI_STARTPROC
-  /* no need to test for NULL */
-  /* no need to do -1 since we won't have large alignments */
-  pushq   %r11                       /* save block on stack */
-  movq    %r11, %rax
-  andq    $-67108864, %r11           /* r11 for the segment now (r11 &= ~(0x4000000 - 1)) */
-  
-  subq    %r11, %rax
-  shrq    $16, %rax
-  leaq	  (%rax,%rax,4), %rax
-  salq	  $4, %rax
-  leaq	  392(%rax), %r10
-  movl	  396(%r11,%rax), %eax     
-  subq	  %rax, %r10     
-  addq	  %r11, %r10                  /* r10 = page */
-	
-  /* on entry: block on the stack, r11 is the segment, r10 is the page */
-  /* note: we can potentially skip the thread local check as we only call mi_free if the block was unique and not thread shared */
-  movq    %fs:0, %rax                 /* rax = thread id */
-  cmpq    376(%r11), %rax             /* thread_id == segment->thread_id ? */
-  jne     LBL(caml_rc_asm_free_slow)
-	cmpb	  $0, 14(%r10)                /* page is not full or aligned? */
-	jne	    LBL(caml_rc_asm_free_slow)
-  
-  popq    %r11                        /* r11 is the block again (we don't need the segment anymore) */
-	movq	  32(%r10), %rax              
-	movq	  %rax, (%r11)                /* block->next = page->local_free */
-	subl	  $1, 24(%r10)                /* page->used-- */
-	movq	  %r11, 32(%r10)              /* page->local_free = block */
-	jz	    LBL(caml_rc_asm_free_retire)   /* is page empty? */
-  ret
-
-LBL(caml_rc_asm_free_retire):
-  /* on entry: nothing on the stack, r10 is the page */
-  jmp     GCALL(caml_rc_asm_mi_page_retire)     
-
-LBL(caml_rc_asm_free_slow):
-  /* on entry: block on the stack, r11 is the segment */
-  xorl	  %eax, %eax                          
-	movq    %fs:0, %r10                         /* note: page is no longer needed */
-	cmpq	  376(%r11), %r10
-	sete	  %al                                 /* rax= (tid==thread_id) */
-  pop     %r10                                /* pop block in r10 */
-	jmp	    GCALL(caml_rc_asm_mi_free_generic)  /* segment in r11, tid==thread_id in rax, block in r10 */
-
-CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_mi_free))
-
 /* The code above comes from inspecting mimalloc generated assembly for mi_free (using -DMI_SEE_ASM=ON) */
 /*
 mi_free:
 .LFB674:
 	.cfi_startproc
 	endbr64
-	movq	%rdi, %rdx
+	movq	%rdi, %rcx
 	testq	%rdi, %rdi
-	je	.L141
-	leaq	-1(%rdi), %r8
-	andq	$-67108864, %r8
-	je	.L141
-	movq	%rdi, %rax
-	subq	%r8, %rax
-	shrq	$16, %rax
+	je	.L183
+	leaq	-1(%rdi), %rdi
+	movq	%rcx, %rax
+	andq	$-33554432, %rdi
+	subq	%rdi, %rax
+	shrq	$15, %rax
 	leaq	(%rax,%rax,4), %rax
 	salq	$4, %rax
-	leaq	392(%rax), %rdi
-	movl	396(%r8,%rax), %eax
+	leaq	392(%rax), %rsi
 #APP
-# 864 "/home/daan/home/dev/ocaml/mimalloc/include/mimalloc-internal.h" 1
-	movq %fs:0, %rcx
+# 867 "/home/daan/home/dev/mimalloc/include/mimalloc-internal.h" 1
+	movq %fs:0, %r8
 # 0 "" 2
 #NO_APP
-	subq	%rax, %rdi
-	movq	376(%r8), %rax
-	addq	%r8, %rdi
-	cmpq	%rcx, %rax
-	jne	.L145
-	cmpb	$0, 14(%rdi)
-	jne	.L145
-	movq	32(%rdi), %rax
-	movq	%rax, (%rdx)
-	subl	$1, 24(%rdi)
-	movq	%rdx, 32(%rdi)
-	je	.L149
-.L141:
+	movq	384(%rdi), %rdx
+	movl	396(%rdi,%rax), %eax
+	subq	%rax, %rsi
+	addq	%rdi, %rsi
+	cmpq	%rdx, %r8
+	jne	.L186
+	cmpb	$0, 14(%rsi)
+	jne	.L187
+	movq	32(%rsi), %rax
+	movq	%rax, (%rcx)
+	subl	$1, 24(%rsi)
+	movq	%rcx, 32(%rsi)
+	je	.L189
+.L183:
 	ret
 	.p2align 4,,10
 	.p2align 3
-.L149:
+.L189:
+	movq	%rsi, %rdi
 	jmp	_mi_page_retire@PLT
 	.p2align 4,,10
 	.p2align 3
-.L145:
-	xorl	%esi, %esi
-	movq	%r8, %rdi
-	movq	376(%r8), %rax
-	cmpq	%rcx, %rax
-	sete	%sil
-	jmp	mi_free_generic
-	.cfi_endproc
+.L186:
+	xorl	%edx, %edx
+	jmp	_mi_free_generic
+	.p2align 4,,10
+	.p2align 3
+.L187:
+	movl	$1, %edx
+	jmp	_mi_free_generic
 */  
 
 
