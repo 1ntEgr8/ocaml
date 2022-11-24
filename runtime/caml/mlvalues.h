@@ -121,7 +121,7 @@ For 64-bit architectures:
      +----------------+----------------+-------------+
      |    ref count   | wosize         | color | tag |
      +----------------+----------------+-------------+
-bits  63            31 30            10 9     8 7   0
+bits  63            32 31            10 9     8 7   0
 
 Spacetime profiling is not supported.
 
