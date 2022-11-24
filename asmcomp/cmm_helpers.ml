@@ -45,8 +45,9 @@ let rc_static  = Nativeint.min_int  (* TODO: only works for 64-bit *)
 
 let floatarray_tag dbg = Cconst_int (Obj.double_array_tag, dbg)
 
-let block_header_rc _tag _rc _sz =
-  failwith "unimplemented"
+let block_header_rc tag sz _rc =
+  Nativeint.add (Nativeint.shift_left (Nativeint.of_int sz) 10)
+                (Nativeint.of_int tag)
 
 let block_header tag sz =
   Nativeint.add (Nativeint.shift_left (Nativeint.of_int sz) 10)
@@ -832,11 +833,11 @@ let make_float_alloc dbg tag args =
                      (List.length args * size_float / size_addr) args
 
 let make_closure_alloc dbg args =
-  let wordsize = List.length args in
-  let _num_mutual_decls = wordsize - 1 in
   let tag = Obj.closure_tag in
+  let wordsize = List.length args in
+  let rc = wordsize - 1 in
   if wordsize <= Config.max_young_wosize then
-    Cop(Calloc, Cconst_natint(block_header tag wordsize, dbg) :: args, dbg)
+    Cop(Calloc, Cconst_natint(block_header_rc tag wordsize rc, dbg) :: args, dbg)
   else
     failwith "make_closure_alloc: not implemented"
 

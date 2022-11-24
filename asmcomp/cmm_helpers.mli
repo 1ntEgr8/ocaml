@@ -36,7 +36,7 @@ val caml_black : nativeint
 (** A constant equal to the tag for float arrays *)
 val floatarray_tag : Debuginfo.t -> expression
 
-(** [block_header_rc tag rc size] creates a header with tag [tag] and
+(** [block_header_rc tag size rc] creates a header with tag [tag] and
     refcount [rc] for a block of size [size] *)
 val block_header_rc : int -> int -> int -> nativeint
 
