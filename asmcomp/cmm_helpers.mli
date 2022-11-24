@@ -36,6 +36,10 @@ val caml_black : nativeint
 (** A constant equal to the tag for float arrays *)
 val floatarray_tag : Debuginfo.t -> expression
 
+(** [block_header_rc tag rc size] creates a header with tag [tag] and
+    refcount [rc] for a block of size [size] *)
+val block_header_rc : int -> int -> int -> nativeint
+
 (** [block_header tag size] creates a header with tag [tag] for a
     block of size [size] *)
 val block_header : int -> int -> nativeint
@@ -303,6 +307,9 @@ val make_alloc : Debuginfo.t -> int -> expression list -> expression
 
 (** Allocate a block of unboxed floats with the given tag *)
 val make_float_alloc : Debuginfo.t -> int -> expression list -> expression
+
+(** Allocate a block of mutually recursive closures *)
+val make_closure_alloc : Debuginfo.t -> expression list -> expression
 
 (** Bounds checking *)
 
