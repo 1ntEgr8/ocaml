@@ -1307,8 +1307,7 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
        dupped value of each environment field to the function body, and then
        dropping the closure (via the `env_param`, which points to the closure).
 
-       TODO we should do this for Cmm generated `caml_curry$N` functions as well
-
+       TODO should we do this for Cmm generated `caml_curry$N` functions as well?
     *)
 
     (* start of inserting dups/drops *)
