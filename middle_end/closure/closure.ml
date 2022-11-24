@@ -1357,7 +1357,7 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
 
     (* Prepend dupping the environment and dropping the closure *)
 
-    let _prepend_drop_clos body =
+    let prepend_drop_clos body =
       Usequence (
         Uprim (Pccall (Primitive.simple
           ~name:"caml_rc_drop"
@@ -1395,10 +1395,8 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
       else
         (* dup the environment first, then drop the closure, then execute
            the closure. *)
-        (* prepend_drop_clos ubody
+        prepend_drop_clos ubody
         |> prepend_dup_env
-        *)
-        prepend_dup_env ubody
     in
 
     (* end of inserting dups/drops *)
