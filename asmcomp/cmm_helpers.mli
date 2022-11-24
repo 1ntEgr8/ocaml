@@ -37,7 +37,9 @@ val caml_black : nativeint
 val floatarray_tag : Debuginfo.t -> expression
 
 (** [block_header_rc tag size rc] creates a header with tag [tag] and
-    refcount [rc] for a block of size [size] *)
+    refcount [rc] for a block of size [size].
+
+    Only works on 64-bit systems. *)
 val block_header_rc : int -> int -> int -> nativeint
 
 (** [block_header tag size] creates a header with tag [tag] for a
@@ -308,8 +310,9 @@ val make_alloc : Debuginfo.t -> int -> expression list -> expression
 (** Allocate a block of unboxed floats with the given tag *)
 val make_float_alloc : Debuginfo.t -> int -> expression list -> expression
 
-(** Allocate a block of mutually recursive closures *)
-val make_closure_alloc : Debuginfo.t -> expression list -> expression
+(** [make_closure_alloc dbg num_decls values] allocates a closure block
+    with [num_decls] mutually recursive definitions containing [values] *)
+val make_closure_alloc : Debuginfo.t -> int -> expression list -> expression
 
 (** Bounds checking *)
 
