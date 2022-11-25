@@ -1330,8 +1330,8 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
          let-bindings, we want this function to be run again with
          `useless_env` set to false. To do that, we replace all occurrences
          of free variables with an access through the environment, thereby
-         tricking the compiler into thinking that the environment is needed, which in turn
-         triggers a re-run of this function.
+         tricking the compiler into thinking that the environment is needed,
+         which in turn triggers a re-run of this function.
       *)
         
       if !useless_env then
