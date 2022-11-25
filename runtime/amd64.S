@@ -456,7 +456,6 @@ CFI_STARTPROC
     PREPARE_FOR_C_CALL
     call    GCALL(rc_drop_free)
     CLEANUP_AFTER_C_CALL
-    popq    %rbp; CFI_ADJUST(8);
     POP_CALLER_SAVE_INT_REGS
     ret
 CFI_ENDPROC
