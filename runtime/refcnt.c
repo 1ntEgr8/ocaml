@@ -70,7 +70,6 @@ static inline void rc_drop( value v ) {
 void rc_drop_free( value v ) {
   tag_t t;
   assert(Is_block(v));
-  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_drop_free: not a block!\n");
   t = Tag_val(v);
   if rc_likely(t < No_scan_tag) {
     mlsize_t first_field;
@@ -78,9 +77,10 @@ void rc_drop_free( value v ) {
     if rc_unlikely(t == Closure_tag) {
       first_field = Start_env_closinfo(Closinfo_val(v));
     } else if rc_unlikely(t == Infix_tag) {
-      assert(false);
-      printf("encountered infix block\n");
-      first_field = wsize;
+      // redirect: drop the main closure
+      v -= Infix_offset_val(v);
+      rc_drop(v);
+      return;
     } else {
       first_field = 0;
     }
