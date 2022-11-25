@@ -451,8 +451,6 @@ ENDFUNCTION(G(caml_rc_asm_drop_atomic))
    r11 is the drop argument  */
 FUNCTION(G(caml_rc_asm_drop_free))
 CFI_STARTPROC
-    subq    $8, %rsp; CFI_ADJUST(8) /* Maintain stack alignment
-                                       printf segfaults without this */
     PUSH_CALLER_SAVE_INT_REGS   /* todo: save all registers (not needed for mimalloc?) */
     movq    %r11, C_ARG_1
     PREPARE_FOR_C_CALL
