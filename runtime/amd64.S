@@ -570,11 +570,18 @@ mi_heap_malloc_small:
 */
 
 
-/* r11 is the free argument pointing to the heap block (!) (i.e. the OCaml header); should not be NULL 
-   destroys: rax (temp), r10 (segment/block) (and r11)
-   note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
+/* r11 is the free argument pointing to the OCaml block (8 bytes beyond the allocated heap block)
+   It should not be NULL 
+   Destroys: rax (temp), r10 (segment/block) (and r11)
+   Note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
 */
 FUNCTION(G(caml_rc_asm_mi_free))
+  leaq    -8(%r11), %r11             /* adjust r11 to point to the heap block itself */
+  /* and fall through */
+ENDFUNCTION(G(caml_rc_asm_mi_free))
+
+/* fast entry with r11 pointing to the allocated heap block */
+FUNCTION(G(caml_rc_asm_mi_free_hp))
 CFI_STARTPROC
   /* no need to test for NULL */
   /* no need to do -1 since we won't have large alignments */
@@ -583,7 +590,7 @@ CFI_STARTPROC
   andq    $-33554432, %r11           /* r11 for the segment  (r11 &= ~(0x2000000 - 1)) = 32MiB segments */
   
   subq    %r11, %rax
-  shrq    $16, %rax                   /* 32KiB pages */
+  shrq    $16, %rax                   /* 64KiB pages */
   leaq	  (%rax,%rax,4), %rax         /* rax *= 5 */
   salq	  $4, %rax
   leaq	  264(%rax), %r10
@@ -607,7 +614,7 @@ CFI_STARTPROC
 	jz	    GCALL(caml_rc_asm_mi_page_retire)  /* is page empty? (then tail call) */
   ret
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_mi_free))
+ENDFUNCTION(G(caml_rc_asm_mi_free_hp))
 
 
 /* mimalloc generic free path (non thread local)
@@ -709,6 +716,64 @@ mi_free:
 	movl	$1, %edx
 	jmp	_mi_free_generic
 */  
+
+
+/* drop N children and free the block 
+   r11 = block
+*/   
+FUNCTION(G(caml_rc_asm_mi_dropN_free))
+CFI_STARTPROC
+    pushq   %r10
+    pushq   %rax
+
+LBL(caml_rc_asm_mi_dropN_free_recurse):    
+    movl    -8(%r11), %eax                 /* load lower 32 bits of the header: 21-bit size ++ 2-bit color ++ 8-bit tag */
+    cmpb    $247, %al                      /* compare unsigned for special tags */
+    shrq    $10, %rax                      /* rax is the #fields */
+    jae     LBL(caml_rc_asm_mi_dropN_free_loop_end_manyptr)  /* go to generic drop routine for special tag */
+
+LBL(caml_rc_asm_mi_dropN_free_loop_noptr):
+    testq   %rax, %rax
+    movq    (%r11,%rax,8), %r10
+    leaq    -1(%rax), %rax
+    jz      LBL(caml_rc_asm_mi_dropN_free_loop_end_noptr)
+
+    testq   $1, %r10
+    jnz     LBL(caml_rc_asm_mi_dropN_free_loop_noptr)
+    /* fall through, r10 is the pointer child */
+
+LBL(caml_rc_asm_mi_dropN_free_loop_oneptr):    
+    testq   %rax, %rax
+    leaq    -1(%rax), %rax
+    jz      LBL(caml_rc_asm_mi_dropN_free_loop_end_oneptr)
+
+    testq   $1, 8(%r11,%rax,8)
+    jnz     LBL(caml_rc_asm_mi_dropN_free_loop_oneptr)
+
+LBL(caml_rc_asm_mi_dropN_free_loop_end_manyptr):
+    /* more than one child is a pointer, use C generic drop */
+    popq    %rax
+    popq    %r10
+    jmp     GCALL(caml_rc_asm_drop_free)
+
+LBL(caml_rc_asm_mi_dropN_free_loop_end_noptr):    
+    /* no child is a pointer, just free it */
+    call    GCALL(caml_rc_asm_mi_free)
+    popq    %rax
+    popq    %r10
+    ret
+
+LBL(caml_rc_asm_mi_dropN_free_loop_end_oneptr):    
+    /* one pointer child in r10, free the block and tail recurse */
+    pushq   %r10
+    subq    $8, %rsp
+    call    GCALL(caml_rc_asm_mi_free)
+    addq    $8, %rsp
+    popq    %r11
+    jmp     LBL(caml_rc_asm_mi_dropN_free_recurse)
+
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_mi_dropN_free))
 
 
 /* ----------------------------------------------------------------------
