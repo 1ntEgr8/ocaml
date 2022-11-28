@@ -257,30 +257,29 @@ let emit_call_gc gc =
   def_label gc.gc_frame_lbl;
   I.jmp (label gc.gc_return_lbl)
 
-let rc_sticky = int (0x90000000)  (* RC_STICKY *)  
+(* let rc_sticky = int (0x90000000) *) (* RC_STICKY *)  
 
-let emit_dup_checked entry_lbl return_lbl dup_arg rc_reg =
+let emit_dup_checked entry_lbl return_lbl dup_arg =
   def_label entry_lbl;
-  I.cmp rc_sticky rc_reg;      (* rc_reg < rc_sticky ? *)
-  I.jl  (label return_lbl);    
-  I.mov dup_arg r11;
-  emit_call "caml_rc_asm_dup_atomic"; (* must preserve the dup_arg register ! *)
+  if (dup_arg == R11) then () else I.mov (Reg64 dup_arg) r11;
+  emit_call "caml_rc_asm_dup_checked"; (* must preserve the dup_arg register ! (for dup_copy) *)
   I.jmp (label return_lbl)
 
-let emit_drop_checked entry_lbl return_lbl drop_arg rc_reg =
+let emit_drop_checked entry_lbl return_lbl drop_arg =
   def_label entry_lbl;
-  let lbl_drop_atomic = new_label () in
-  I.jne  (label lbl_drop_atomic);   
-  (* assert: rc == 0, free the object *)
-  I.mov  drop_arg r11;
-  emit_call "caml_rc_asm_drop_free";
-  I.jmp  (label return_lbl);  
-  def_label lbl_drop_atomic;
-  I.cmp  rc_sticky rc_reg;       (* rc_reg < rc_sticky ? *)
-  I.jl   (label return_lbl);      
-  I.mov  drop_arg r11; 
-  emit_call "caml_rc_asm_drop_atomic";  (* todo: inline ? *)
-  I.jmp  (label return_lbl)
+  if (drop_arg == R11) then () else I.mov (Reg64 drop_arg) r11;
+  emit_call "caml_rc_asm_drop_checked";
+  I.jmp (label return_lbl)
+  (*
+  let lbl_drop_checked_atomic = new_label () in
+  if (drop_arg == R11) then () else I.mov (Reg64 drop_arg) r11;
+  I.jne  (label lbl_drop_checked_atomic);
+  emit_call "caml_rc_asm_drop_free";    (* or mi_drop_free_fast *)
+  I.jmp (label return_lbl);
+  def_label lbl_drop_checked_atomic;
+  emit_call "caml_rc_asm_drop_checked_atomic";
+  I.jmp (label return_lbl)
+  *)
 
 let emit_mi_alloc_generic entry_lbl return_lbl n res_reg =
   (* assert n % 8 == 0 *)
@@ -643,7 +642,6 @@ let emit_instr env fallthrough i =
   | Lop(Idupcopy _) | Lop(Idup _) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
                (by default instructions get register arguments -- see `reload.ml`)
-         we use eax to contain the 32-bit refcount
       *)
       let dup_reg = match i.desc with
                       | Lop(Idupcopy _) -> res64 i 0  (* not `arg64 i 0` since in `selection.ml:pseudoregs_for_operation` we force the result to be the argument register *)
@@ -655,57 +653,47 @@ let emit_instr env fallthrough i =
                     | _ -> false
                     in
       let lbl_dup_end = new_label() in
-      let push_tmp = (dup_reg == R11) in
-      let tmp_reg = if (push_tmp) then r10d else r11d in
-      if (push_tmp) then I.push r10 else ();
+      
       (* test if this is a value *) 
       if (not is_ptr) then begin
         I.test (int 1) (Reg8L dup_reg); 
         I.jne  (label lbl_dup_end)
       end;
-      (* read the refcount and increment *)
-      I.mov  (mem64 DWORD (-4) dup_reg) tmp_reg;
-      I.inc  tmp_reg;
+      (* compare the refcount *)
+      I.cmp  (int 0) (mem64 DWORD (-4) dup_reg);
       (* slow path if refcount was less than zero (i.e. needs atomic increment) *)
       let lbl_dup_checked = new_label() in
-      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end (Reg64 dup_reg) tmp_reg in
+      let slowpath () = emit_dup_checked lbl_dup_checked lbl_dup_end dup_reg in
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
-      I.jle  (label lbl_dup_checked);  (* flags are set by the add instruction *)
-      (* fast path: write the updated refcount back into the header *)
-      I.mov  tmp_reg (mem64 DWORD (-4) dup_reg);
+      I.jl   (label lbl_dup_checked);
+      (* fast path: increment the refcount *)
+      I.inc  (mem64 DWORD (-4) dup_reg);
       (* end *)
-      def_label lbl_dup_end;      
-      if (push_tmp) then I.pop r10 else ()
+      def_label lbl_dup_end      
 
   | Lop(Idrop{is_ptr}) ->
       (* note: we know that the argument is in a register already (and we use `arg64 i 0`)
                 (by default instructions get register arguments -- see `reload.ml`)
-          we use eax to contain the 32-bit refcount
       *)
       let drop_reg = arg64 i 0 in
       let lbl_drop_end = new_label() in
-      let push_tmp = (drop_reg == R11) in
-      let tmp_reg = if (push_tmp) then r10d else r11d in
-      if (push_tmp) then I.push r10 else ();
+      
       (* test if this is a value *)
       if (not is_ptr) then begin
         I.test (int 1) (Reg8L drop_reg);
         I.jne  (label lbl_drop_end)
       end;
-      (* read the refcount and decrement *)
-      I.mov  (mem64 DWORD (-4) drop_reg) tmp_reg;
-      I.cmp  (int 0) tmp_reg;
+      (* compare the refcount *)
+      I.cmp  (int 0) (mem64 DWORD (-4) drop_reg);
       (* slow path if refcount was <= 0 (i.e. needs to be freed or atomically dropped *)
       let lbl_drop_checked = new_label() in
-      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end (Reg64 drop_reg) tmp_reg in
+      let slowpath () = emit_drop_checked lbl_drop_checked lbl_drop_end drop_reg in
       env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
-      I.jle  (label lbl_drop_checked);
-      (* fast path: write the updated refcount back into the header *)
-      I.dec  tmp_reg;
-      I.mov  tmp_reg (mem64 DWORD (-4) drop_reg);
+      I.jle  (label lbl_drop_checked);  (* <= 0 ? *)
+      (* fast path: decrement the refcount *)
+      I.dec  (mem64 DWORD (-4) drop_reg);
       (* end *)
-      def_label lbl_drop_end;  
-      if (push_tmp) then I.pop r10 else ()
+      def_label lbl_drop_end      
 
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);

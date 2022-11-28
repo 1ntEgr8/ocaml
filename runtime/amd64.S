@@ -446,27 +446,11 @@ G(caml_system__code_begin):
    the caller-save registers
 -----------------------------------------------------------------------*/   
 
-/* dup an atomic reference count
-   r11: the dup argument; guaranteed pointer
-   TODO: implement sticky range
-*/   
-FUNCTION(G(caml_rc_asm_dup_atomic))
-CFI_STARTPROC
-    lock    decl -4(%r11) 
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_dup_atomic))
+#define RC_STUCK          $0x80000000
+#define RC_STICKY         $0x90000000
+#define RC_STICKY_DROP    $0xA0000000
+#define RC_SHARED_UNIQUE  $0xFFFFFFFF
 
-/* drop an atomic reference count
-   r11: the drop argument; guaranteed pointer
-   TODO: implement sticky range
-*/   
-FUNCTION(G(caml_rc_asm_drop_atomic))
-CFI_STARTPROC
-    lock  incl -4(%r11)         /* todo: atomic drop correctly with sticky range and possibly free */
-    ret
-CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_drop_atomic))
 
 /* generic drop children and free the block
    r11 is the drop argument  */
@@ -483,6 +467,39 @@ CFI_STARTPROC
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_rc_asm_drop_free))
+
+
+/* checked drop; rc <= 0
+   r11 is the drop argument, flags are set to `refcount == 0` 
+*/
+FUNCTION(G(caml_rc_asm_drop_checked))
+CFI_STARTPROC
+    jz      GCALL(caml_rc_asm_drop_free)            /* caml_rc_asm_mi_drop_free_fast, or, caml_rc_asm_drop_free */
+    /* atomic or sticky ? */
+    cmpl    RC_STICKY_DROP, -4(%r11)
+    jle     LBL(caml_rc_asm_drop_checked_end)       /* sticky, ignore */
+    lock incl -4(%r11)                              /* atomic "decrement" */
+    jz      GCALL(caml_rc_asm_drop_free)            /* caml_rc_asm_mi_drop_free_fast, or, caml_rc_asm_drop_free */
+LBL(caml_rc_asm_drop_checked_end):    
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_drop_checked))
+
+
+/* checked dup; rc < 0
+   r11 is the dup argument, flags are set to `refcount == 0` 
+   r11 must be preserved
+*/
+FUNCTION(G(caml_rc_asm_dup_checked))
+CFI_STARTPROC
+    /* atomic or sticky ? */
+    cmpl    RC_STICKY, -4(%r11)
+    jle     LBL(caml_rc_asm_dup_checked_end)        /* sticky, ignore */
+    lock decl -4(%r11)                              /* atomic "increment" */
+LBL(caml_rc_asm_dup_checked_end):    
+    ret
+CFI_ENDPROC
+ENDFUNCTION(G(caml_rc_asm_dup_checked))
 
 
 /* generic malloc:
@@ -572,7 +589,7 @@ mi_heap_malloc_small:
 
 /* r11 is the free argument pointing to the OCaml block (8 bytes beyond the allocated heap block)
    It should not be NULL 
-   Destroys: rax (temp), r10 (segment/block) (and r11)
+   Destroys: rax (temp), r10 (segment/block), and r11
    Note: try to use minimal registers (r11,r10,rax) -- we do spill the block on the stack now though...
 */
 FUNCTION(G(caml_rc_asm_mi_free))
@@ -718,63 +735,126 @@ mi_free:
 */  
 
 
-/* drop N children and free the block 
+#if 1
+/* drop children and free the block 
+   This is _potentially_ faster than `rc_asm_drop_free` for blocks that contain at most one pointer child
+   as it tries to save less registers and accomodate the common cases. 
    r11 = block
-*/   
-FUNCTION(G(caml_rc_asm_mi_dropN_free))
+*/ 
+#define Custom_tag  $255
+#define No_scan_tag $251
+#define Closure_tag $247
+#define Special_tag Closure_tag
+
+FUNCTION(G(caml_rc_asm_mi_drop_fast))
+
+ENDFUNCTION(G(caml_rc_asm_mi_drop_fast))
+
+FUNCTION(G(caml_rc_asm_mi_drop_free_fast))
 CFI_STARTPROC
     pushq   %r10
     pushq   %rax
 
-LBL(caml_rc_asm_mi_dropN_free_recurse):    
+LBL(caml_rc_asm_mi_drop_free_recurse):    
     movl    -8(%r11), %eax                 /* load lower 32 bits of the header: 21-bit size ++ 2-bit color ++ 8-bit tag */
-    cmpb    $247, %al                      /* compare unsigned for special tags */
-    shrq    $10, %rax                      /* rax is the #fields */
-    jae     LBL(caml_rc_asm_mi_dropN_free_loop_end_manyptr)  /* go to generic drop routine for special tag */
+    cmpb    Special_tag, %al
+    jae     LBL(caml_rc_asm_mi_drop_free_special_tag) /* jump unsigned above-or-equal */
+    shrq    $10, %rax                                 /* rax is the field count */
 
-LBL(caml_rc_asm_mi_dropN_free_loop_noptr):
-    testq   %rax, %rax
-    movq    (%r11,%rax,8), %r10
-    leaq    -1(%rax), %rax
-    jz      LBL(caml_rc_asm_mi_dropN_free_loop_end_noptr)
+/* ------------ */
+/* loop through the fields backwards and find hopefully atmost 1 pointer child that needs to be drop-freed */
+LBL(caml_rc_asm_mi_drop_free_loop_noptr):
+    decq    %rax                                      /* if rax becomes negative, the carry flag is set */
+    movq    (%r11,%rax,8), %r10                       /* r10 is child field */
+    jc      LBL(caml_rc_asm_mi_drop_free_noptr)       /* done, all fields visited (rax == -1) */
 
     testq   $1, %r10
-    jnz     LBL(caml_rc_asm_mi_dropN_free_loop_noptr)
-    /* fall through, r10 is the pointer child */
+    jnz     LBL(caml_rc_asm_mi_drop_free_loop_noptr)  /* while is_value(child) */
+    
+    cmpl    $0, -4(%r10)
+    jz      LBL(caml_rc_asm_mi_drop_free_oneptr)
+    jl      LBL(caml_rc_asm_mi_drop_free_loop_noptr_atomic)
+    decl    -4(%r10)
+    jmp     LBL(caml_rc_asm_mi_drop_free_loop_noptr)
+    
+    /* atomic drop */
+LBL(caml_rc_asm_mi_drop_free_loop_noptr_atomic):
+    cmpl    RC_STICKY_DROP, -4(%r10)
+    jle     LBL(caml_rc_asm_mi_drop_free_loop_noptr)   /* sticky, ignore */
+    jmp     LBL(caml_rc_asm_mi_drop_free_generic)      /* atomic: go generic */
+    
 
-LBL(caml_rc_asm_mi_dropN_free_loop_oneptr):    
-    testq   %rax, %rax
-    leaq    -1(%rax), %rax
-    jz      LBL(caml_rc_asm_mi_dropN_free_loop_end_oneptr)
+/* ------------ */
+/* we have 1 child with rc==0 in r10,
+   further loop through the fields 
+   if we find  anothor pointer child that needs to be drop-freed we give up (as that needs recursion) 
+*/
+LBL(caml_rc_asm_mi_drop_free_loop_oneptr_found):
+    pushq   %r10                                        /* child pointer on the stack */
 
-    testq   $1, 8(%r11,%rax,8)
-    jnz     LBL(caml_rc_asm_mi_dropN_free_loop_oneptr)
+LBL(caml_rc_asm_mi_drop_free_loop_oneptr):              
+    decq    %rax
+    movq    (%r11,%rax,8), %r10
+    jc      LBL(caml_rc_asm_mi_drop_free_oneptr)        /* done (rax == -1)*/
 
-LBL(caml_rc_asm_mi_dropN_free_loop_end_manyptr):
+    testq   $1, %r10
+    jnz     LBL(caml_rc_asm_mi_drop_free_loop_oneptr)   /* while is_value(child) */
+    
+    cmpl    $0, -4(%r10)
+    jz      LBL(caml_rc_asm_mi_drop_free_oneptr_generic) /* give up */
+    jl      LBL(caml_rc_asm_mi_drop_free_loop_oneptr_atomic)
+    decl    -4(%r10)
+    jmp     LBL(caml_rc_asm_mi_drop_free_loop_oneptr)
+    
+    /* atomic drop */
+LBL(caml_rc_asm_mi_drop_free_loop_oneptr_atomic):
+    cmpl    RC_STICKY_DROP, -4(%r10)
+    jle     LBL(caml_rc_asm_mi_drop_free_loop_oneptr)   /* sticky, ignore */
+    /* fall through: atomic, give up */
+    
+LBL(caml_rc_asm_mi_drop_free_oneptr_generic):
+    addq    $8, %rsp                                    /* restore stack by dropping the saved child pointer */
+    /* fall through */
+
+/* -------------- */
+/* generic drop_free */
+LBL(caml_rc_asm_mi_drop_free_generic):
     /* more than one child is a pointer, use C generic drop */
     popq    %rax
     popq    %r10
     jmp     GCALL(caml_rc_asm_drop_free)
 
-LBL(caml_rc_asm_mi_dropN_free_loop_end_noptr):    
-    /* no child is a pointer, just free it */
+
+/* -------------- */
+/* free the current block and tail recurse on the child (with rc==0 on the stack) */
+LBL(caml_rc_asm_mi_drop_free_oneptr):    
+    /* one pointer child with rc==0 on the stack, free the current block and tail recurse */
+    subq    $8, %rsp                               /* align stack */
+    call    GCALL(caml_rc_asm_mi_free)             /* free current block in r11 (destroys r10, rax) */
+    addq    $8, %rsp
+    popq    %r11                                   /* child to r11 as the new block */
+    jmp     LBL(caml_rc_asm_mi_drop_free_recurse)
+
+
+/* -------------- */
+/* current block has a special tag, use generic drop_free */
+LBL(caml_rc_asm_mi_drop_free_special_tag):
+    /* al == tag >= Closure_tag */
+    incb    %al                                    /* trick: increment by 1 to make a Custom_tag appear as 0 */
+    cmpb    No_scan_tag, %al                        
+    jbe     LBL(caml_rc_asm_mi_drop_free_generic)  /* use generic drop for Custom, Infix and Closure tags (jb is unsigned compare) */
+    /* fall through: no scan fields: just free the block */
+
+LBL(caml_rc_asm_mi_drop_free_noptr):    
+    /* no child is a pointer, just free the current block */
     call    GCALL(caml_rc_asm_mi_free)
     popq    %rax
     popq    %r10
     ret
 
-LBL(caml_rc_asm_mi_dropN_free_loop_end_oneptr):    
-    /* one pointer child in r10, free the block and tail recurse */
-    pushq   %r10
-    subq    $8, %rsp
-    call    GCALL(caml_rc_asm_mi_free)
-    addq    $8, %rsp
-    popq    %r11
-    jmp     LBL(caml_rc_asm_mi_dropN_free_recurse)
-
 CFI_ENDPROC
-ENDFUNCTION(G(caml_rc_asm_mi_dropN_free))
-
+ENDFUNCTION(G(caml_rc_asm_mi_drop_free_fast))
+#endif
 
 /* ----------------------------------------------------------------------
    Old GC allocation code

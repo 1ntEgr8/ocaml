@@ -38,7 +38,7 @@ let bind_nonvar name arg fn =
   | _ -> let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
 
 let caml_black = Nativeint.shift_left (Nativeint.of_int 3) 8
-let rc_static  = Nativeint.min_int  (* TODO: only works for 64-bit *)
+let rc_static  = Nativeint.min_int (* TODO: only works for 64-bit *)
     (* cf. runtime/caml/gc.h *)
 
 (* Block headers. Meaning of the tag field: see stdlib/obj.ml *)

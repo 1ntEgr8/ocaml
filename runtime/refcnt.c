@@ -1,6 +1,7 @@
 #define CAML_INTERNALS
 
 #include "caml/mlvalues.h"
+#include "caml/custom.h"
 #include <mimalloc.h>
 #include <assert.h>
 
@@ -28,6 +29,12 @@ void* rc_alloc(mlsize_t num_bytes) {
     exit(-1);
   }
   return res;
+}
+
+void rc_free( value v ) {
+  assert(Is_block(v));
+  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_free: not a block!\n");
+  mi_free(Hp_val(v));
 }
 
 void* rc_mi_heap_alloc( mi_heap_t* heap, mlsize_t n ) {
@@ -70,31 +77,35 @@ static inline void rc_drop( value v ) {
 void rc_drop_free( value v ) {
   tag_t t;
   assert(Is_block(v));
+  assert(Refcnt_val(v)==0);
   t = Tag_val(v);
   if rc_likely(t < No_scan_tag) {
+    const mlsize_t wsize = Wosize_val(v);
     mlsize_t first_field;
-    mlsize_t wsize = Wosize_val(v);
-    if rc_unlikely(t == Closure_tag) {
-      first_field = Start_env_closinfo(Closinfo_val(v));
-    } else if rc_unlikely(t == Infix_tag) {
-      // redirect: drop the main closure
+    if rc_unlikely(t == Infix_tag) {
+      // redirect: drop the main closure instead
       v -= Infix_offset_val(v);
       rc_drop(v);
       return;
-    } else {
+    }
+    else if rc_unlikely(t == Closure_tag) {
+      // fields start after code pointer and infix tags
+      first_field = Start_env_closinfo(Closinfo_val(v));
+    }  
+    else {
       first_field = 0;
     }
     for(mlsize_t i = first_field; i < wsize; i++) {
       rc_drop(Field(v,i));
     }
   }
+  else if rc_unlikely(t == Custom_tag) {
+    /* invoke finalizer method */
+    void (*final_fun)(value) = Custom_ops_val(v)->finalize;
+    if (final_fun != NULL) { final_fun(v); }
+  }
   mi_free(Hp_val(v));
 }
 
-void rc_free( value v ) {
-  assert(Is_block(v));
-  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_free: not a block!\n");
-  mi_free(Hp_val(v));
-}
 
 

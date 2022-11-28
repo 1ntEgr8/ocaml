@@ -19,7 +19,7 @@ let rec map xs f =
 let rec sum_acc xs acc =
   match xs with
   | x :: xx ->
-      (* let x = rc_copy x in *)
+      let x = rc_copy x in 
       let xx = rc_copy xx in
       (* rc_dup x; *)
       rc_dup xx;

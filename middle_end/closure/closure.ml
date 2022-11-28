@@ -1356,11 +1356,11 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
     if !useless_env && occurs_var env_param ubody then raise NotClosed;
 
     (* Prepend dupping the environment and dropping the closure *)
-
+    
     let prepend_drop_clos body =
       Usequence (
         Uprim (Pccall (Primitive.simple
-          ~name:"caml_rc_drop"
+          ~name:"caml_rc_drop_clos"
           ~arity:1
           ~alloc:false
         ), [Uvar env_param], Debuginfo.none),
@@ -1396,8 +1396,9 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
         (* dup the environment first, then drop the closure, then execute
            the closure. *)
         prepend_drop_clos ubody
-        |> prepend_dup_env
+        |> prepend_dup_env 
     in
+    
 
     (* end of inserting dups/drops *)
 

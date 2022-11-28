@@ -451,6 +451,7 @@ method select_operation op args _dbg =
     | "caml_rc_copy" -> Icopy, args
     | "caml_rc_dup"  -> Idup{is_ptr=false}, args
     | "caml_rc_drop" -> Idrop{is_ptr=false}, args
+    | "caml_rc_drop_clos" -> Icopy, args               (* generated for closures -- disable for now until perceus works *)
     | "caml_rc_dup_copy" -> Idupcopy{is_ptr=false}, args
     | "caml_rc_dup_ptr"  -> Idup{is_ptr=true}, args
     | "caml_rc_drop_ptr" -> Idrop{is_ptr=true}, args
