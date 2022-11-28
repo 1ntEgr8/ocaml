@@ -453,16 +453,12 @@ G(caml_system__code_begin):
 
 
 /* generic drop children and free the block
-   r11 is the drop argument  */
+   r11 is the drop argument; destroys r10, r11  */
 FUNCTION(G(caml_rc_asm_drop_free))
 CFI_STARTPROC
     ENTER_C_INT_FUNCTION
-    pushq   %r10                 /* todo: make r10 a destroyed register in `proc.ml`? */
-    pushq   %r10                 /* twice to keep the stack aligned */
     movq    %r11, C_ARG_1
     MAKE_C_CALL(rc_drop_free)
-    popq    %r10
-    popq    %r10
     LEAVE_C_INT_FUNCTION
     ret
 CFI_ENDPROC
@@ -471,6 +467,7 @@ ENDFUNCTION(G(caml_rc_asm_drop_free))
 
 /* checked drop; rc <= 0
    r11 is the drop argument, flags are set to `refcount == 0` 
+   destroys r10, r11
 */
 FUNCTION(G(caml_rc_asm_drop_checked))
 CFI_STARTPROC
