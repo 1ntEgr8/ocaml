@@ -456,7 +456,7 @@ G(caml_system__code_begin):
    r11 is the drop argument; destroys r10, r11  */
 FUNCTION(G(caml_rc_asm_drop_free))
 CFI_STARTPROC
-    ENTER_C_INT_FUNCTION
+    ENTER_C_INT_FUNCTION           /* don't save FP regs for efficiency */
     movq    %r11, C_ARG_1
     MAKE_C_CALL(rc_drop_free)
     LEAVE_C_INT_FUNCTION
@@ -547,12 +547,12 @@ ENDFUNCTION(G(caml_rc_asm_free))
 */
 FUNCTION(G(caml_rc_asm_mi_alloc_generic))
 CFI_STARTPROC
-    ENTER_C_INT_FUNCTION    
-    movq    %r15, C_ARG_1             /* r14 = Caml_state, r15 = mimalloc heap pointer */
+    ENTER_C_INT_FUNCTION            /* don't save FP regs for efficiency */
+    movq    %r15, C_ARG_1           /* r14 = Caml_state, r15 = mimalloc heap pointer */
     movq    %r11, C_ARG_2
     MAKE_C_CALL(rc_mi_heap_alloc)   /* rax has the result */
     movq    %rax, %r11
-    LEAVE_C_INT_FUNCTION     /* ensure r11 is not overwritten! */    
+    LEAVE_C_INT_FUNCTION            /* note: ensure r11 is not overwritten! */    
     ret
 CFI_ENDPROC
 ENDFUNCTION(G(caml_rc_asm_mi_alloc_generic))
@@ -636,7 +636,7 @@ ENDFUNCTION(G(caml_rc_asm_mi_free_hp))
 */
 FUNCTION(G(caml_rc_asm_mi_free_generic_nonlocal))
 CFI_STARTPROC
-    ENTER_C_INT_FUNCTION    /* todo: don't need to save rax ? */
+    ENTER_C_INT_FUNCTION    
     movq    %r11, C_ARG_1   
     movq    %r10, C_ARG_2   
     xorq    C_ARG_3, C_ARG_3
@@ -652,7 +652,7 @@ ENDFUNCTION(G(caml_rc_asm_mi_free_generic_nonlocal))
 */
 FUNCTION(G(caml_rc_asm_mi_free_generic_local))
 CFI_STARTPROC
-    ENTER_C_INT_FUNCTION    /* todo: don't need to save rax ? */
+    ENTER_C_INT_FUNCTION    
     movq    %r11, C_ARG_1   
     movq    %r10, C_ARG_2   
     movq    $1, C_ARG_3
@@ -668,7 +668,7 @@ ENDFUNCTION(G(caml_rc_asm_mi_free_generic_local))
 */
 FUNCTION(G(caml_rc_asm_mi_page_retire))
 CFI_STARTPROC
-    ENTER_C_INT_FUNCTION    /* todo: don't need to save rax ? */    
+    ENTER_C_INT_FUNCTION    
     movq    %r10, C_ARG_1
     MAKE_C_CALL(_mi_page_retire)
     LEAVE_C_INT_FUNCTION
