@@ -591,7 +591,7 @@ mi_heap_malloc_small:
 */
 FUNCTION(G(caml_rc_asm_mi_free))
   leaq    -8(%r11), %r11             /* adjust r11 to point to the heap block itself */
-  /* and fall through */
+  /* and fall through (TODO: does this work with function alignment?? */
 ENDFUNCTION(G(caml_rc_asm_mi_free))
 
 /* fast entry with r11 pointing to the allocated heap block */
@@ -732,7 +732,7 @@ mi_free:
 */  
 
 
-#if 1
+#if 0
 /* drop children and free the block 
    This is _potentially_ faster than `rc_asm_drop_free` for blocks that contain at most one pointer child
    as it tries to save less registers and accomodate the common cases. 
