@@ -1099,7 +1099,12 @@ and transl_match ~scopes e arg pat_expr_list partial =
     in
     (pat, rhs_with_rc_copies)
   in
-  let val_cases = List.map insert_rc_copy val_cases in
+  let val_cases =
+    if !Clflags.manual_refcounting then
+      val_cases
+    else
+      List.map insert_rc_copy val_cases
+  in
   
   (* In presence of exception patterns, the code we generate for
 
