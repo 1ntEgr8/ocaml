@@ -1081,8 +1081,9 @@ and transl_match ~scopes e arg pat_expr_list partial =
   in
   
   (* Refcount management *)
-
+      
   let insert_rc_copy (pat, rhs) =
+    (* TODO(1ntEgr8): check if variable is used in rhs before inserting rc_copy *)
     let ids = Typedtree.pat_bound_idents_full pat in
     let bind_ident_with_rc_copy body (ident, _loc, ty) =
       let k = Typeopt.value_kind pat.pat_env ty in
