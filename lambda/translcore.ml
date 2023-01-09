@@ -1074,10 +1074,33 @@ and transl_match ~scopes e arg pat_expr_list partial =
         (pe, static_raise ids) :: exn_cases,
         (lbl, ids_kinds, rhs) :: static_handlers
   in
+  
   let val_cases, exn_cases, static_handlers =
     let x, y, z = List.fold_left rewrite_case ([], [], []) pat_expr_list in
     List.rev x, List.rev y, List.rev z
   in
+  
+  (* Refcount management *)
+
+  let insert_rc_copy (pat, rhs) =
+    let ids = Typedtree.pat_bound_idents_full pat in
+    let bind_ident_with_rc_copy body (ident, _loc, ty) =
+      let k = Typeopt.value_kind pat.pat_env ty in
+      bind_with_value_kind Strict (Ident.rename ident, k) (
+        Lprim (Pccall (Primitive.simple
+          ~name:"caml_rc_dup_copy"
+          ~arity:1
+          ~alloc:false
+        ), [Lvar ident], Debuginfo.Scoped_location.Loc_unknown)
+      ) body
+    in
+    let rhs_with_rc_copies =
+      List.fold_left bind_ident_with_rc_copy rhs ids
+    in
+    (pat, rhs_with_rc_copies)
+  in
+  let val_cases = List.map insert_rc_copy val_cases in
+  
   (* In presence of exception patterns, the code we generate for
 
        match <scrutinees> with
@@ -1134,9 +1157,11 @@ and transl_match ~scopes e arg pat_expr_list partial =
           (Matching.for_function ~scopes e.exp_loc
              None (Lvar val_id) val_cases partial)
   in
-  List.fold_left (fun body (static_exception_id, val_ids, handler) ->
+  let body = List.fold_left (fun body (static_exception_id, val_ids, handler) ->
     Lstaticcatch (body, (static_exception_id, val_ids), handler)
   ) classic static_handlers
+  in
+  body
 
 and transl_letop ~scopes loc env let_ ands param case partial =
   let rec loop prev_lam = function
