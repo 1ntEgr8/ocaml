@@ -1086,13 +1086,16 @@ and transl_match ~scopes e arg pat_expr_list partial =
     let ids = Typedtree.pat_bound_idents_full pat in
     let bind_ident_with_rc_copy body (ident, _loc, ty) =
       let k = Typeopt.value_kind pat.pat_env ty in
-      bind_with_value_kind Strict (Ident.rename ident, k) (
-        Lprim (Pccall (Primitive.simple
+      let new_ident = Ident.rename ident in
+      bind_with_value_kind
+        Strict
+        (new_ident, k)
+        (Lprim (Pccall (Primitive.simple
           ~name:"caml_rc_dup_copy"
           ~arity:1
           ~alloc:false
-        ), [Lvar ident], Debuginfo.Scoped_location.Loc_unknown)
-      ) body
+        ), [Lvar ident], Debuginfo.Scoped_location.Loc_unknown))
+        (rename (Ident.Map.singleton ident new_ident) body)
     in
     let rhs_with_rc_copies =
       List.fold_left bind_ident_with_rc_copy rhs ids
