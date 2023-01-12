@@ -665,6 +665,9 @@ let rec lam ppf = function
       end
   | Lifused(id, expr) ->
       fprintf ppf "@[<2>(ifused@ %a@ %a)@]" Ident.print id lam expr
+  | Lmarker (_m, expr) ->
+      (* TODO(1ntEgr8): print marker_info *)
+      fprintf ppf "@[<2>(marker@ %a)@]" lam expr
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->

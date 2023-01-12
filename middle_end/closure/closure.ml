@@ -99,6 +99,7 @@ let occurs_var var u =
     | Usend(_, met, obj, args, _) ->
         occurs met || occurs obj || List.exists occurs args
     | Uunreachable -> false
+    | Umarker (_, u) -> occurs u
   and occurs_array a =
     try
       for i = 0 to Array.length a - 1 do
@@ -205,6 +206,8 @@ let lambda_smaller lam threshold =
         size := !size + 8;
         lambda_size met; lambda_size obj; lambda_list_size args
     | Uunreachable -> ()
+    | Umarker (_m, lam) ->
+        lambda_size lam
   and lambda_list_size l = List.iter lambda_size l
   and lambda_array_size a = Array.iter lambda_size a in
   try
@@ -700,6 +703,9 @@ let rec substitute loc ((backend, fpc) as st) sb rn ulam =
             List.map (substitute loc st sb rn) ul, dbg)
   | Uunreachable ->
       Uunreachable
+  | Umarker (m, u) ->
+      (* TODO(1ntEgr8): substitute in marker_info too? *)
+      Umarker(m, substitute loc st sb rn u)
 
 type env = {
   backend : (module Backend_intf.S);
@@ -1212,6 +1218,9 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       close env lam
   | Lifused _ ->
       assert false
+  | Lmarker(m, lam) ->
+      let (ulam, approx) = close env lam in
+      (Umarker(m, ulam), approx)
 
 and close_list env = function
     [] -> []
@@ -1591,6 +1600,7 @@ let collect_exported_structured_constants a =
     | Uassign (_, u) -> ulam u
     | Usend (_, u1, u2, ul, _) -> ulam u1; ulam u2; List.iter ulam ul
     | Uunreachable -> ()
+    | Umarker (_, u) -> ulam u
   in
   approx a
 

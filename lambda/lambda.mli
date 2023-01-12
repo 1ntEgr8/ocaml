@@ -292,6 +292,11 @@ type lambda =
   | Lsend of meth_kind * lambda * lambda * lambda list * scoped_location
   | Levent of lambda * lambda_event
   | Lifused of Ident.t * lambda
+  | Lmarker of marker_info * lambda
+
+and marker_info =
+  | Match_begin
+  | Shape_info
 
 and lfunction = private
   { kind: function_kind;

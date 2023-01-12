@@ -235,6 +235,9 @@ and lam ppf = function
       fprintf ppf "@[<2>(send%s@ %a@ %a%a)@]" kind lam obj lam met args largs
   | Uunreachable ->
       fprintf ppf "unreachable"
+  | Umarker (_m, l) ->
+      (* TODO(1ntEgr8): print marker_info *)
+      fprintf ppf "@[<2>(marker %a@)@]" lam l
 
 and sequence ppf ulam = match ulam with
   | Usequence(l1, l2) ->
