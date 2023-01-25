@@ -19,10 +19,46 @@ let rec free_variables = function
   | Ugeneric_apply (fn, args, _dbg) ->
       V.Set.union (free_variables fn)
                   (free_variables_list args)
-  (* TODO not sure what the args of Uclosure mean *)
+  | Uclosure (_clos, fvs) ->
+      free_variables_list fvs
   | Uoffset (lam, _) -> free_variables lam
+  | Ulet (_flag, _k, v, arg, body) ->
+    V.Set.union
+      (free_variables arg)
+      (V.Set.remove (forget_provenance v) (free_variables body))
+  | Uphantom_let _ ->
+      (* We shouldn't set a phantom let in Clambda *)
+      raise ParcError 
+  | Uletrec (decl, body) ->
+      V.Set.diff
+        (V.Set.union
+          (free_variables body)
+          (free_variables_list (List.map snd decl)))
+        (V.Set.of_list (List.map (fun d -> forget_provenance (fst d)) decl))
   | Uprim (_prim, args, _db) -> free_variables_list args
+  | Uswitch (arg, sw, _dbg) ->
+      V.Set.union
+        (V.Set.union
+          (free_variables arg)
+          (free_variables_list (Array.to_list sw.us_actions_consts)))
+        (free_variables_list (Array.to_list sw.us_actions_blocks))
+  | Ustringswitch (arg, cases, default) ->
+      let set =
+        V.Set.union
+          (free_variables arg)
+          (free_variables_list (List.map snd cases))
+      in
+      begin match default with
+      | None -> set
+      | Some default -> V.Set.union set (free_variables default)
+      end
   | Ustaticfail (_, args) -> free_variables_list args
+  | Ucatch (_, vars, body, handler) ->
+    V.Set.union
+      (V.Set.diff
+        (free_variables handler)
+        (V.Set.of_list (List.map (fun d -> forget_provenance (fst d)) vars)))
+      (free_variables body)
   | Utrywith (body, param, handler) ->
       V.Set.union
         (free_variables body)
@@ -46,7 +82,6 @@ let rec free_variables = function
         (V.Set.union (free_variables met) (free_variables obj))
         (free_variables_list args)
   | Umarker (_, lam) -> free_variables lam
-  | _ -> V.Set.empty
 and free_variables_list exprs =
   List.fold_left (fun acc arg -> V.Set.union acc
     (free_variables arg)) V.Set.empty exprs
