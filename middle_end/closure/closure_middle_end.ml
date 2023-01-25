@@ -34,6 +34,7 @@ let lambda_to_clambda ~backend ~prefixname:_ ~ppf_dump
   let clambda =
     Closure.intro ~backend ~size:lambda.main_module_block_size lambda.code
   in
+  let clambda = Parc.parc clambda in
   let provenance : Clambda.usymbol_provenance =
     { original_idents = [];
       module_path =

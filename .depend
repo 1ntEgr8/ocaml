@@ -2249,7 +2249,6 @@ asmcomp/asmgen.cmo : \
     asmcomp/deadcode.cmi \
     utils/config.cmi \
     middle_end/compilenv.cmi \
-    asmcomp/comballoc.cmi \
     asmcomp/coloring.cmi \
     asmcomp/cmmgen.cmi \
     asmcomp/cmm_invariants.cmi \
@@ -2292,7 +2291,6 @@ asmcomp/asmgen.cmx : \
     asmcomp/deadcode.cmx \
     utils/config.cmx \
     middle_end/compilenv.cmx \
-    asmcomp/comballoc.cmx \
     asmcomp/coloring.cmx \
     asmcomp/cmmgen.cmx \
     asmcomp/cmm_invariants.cmx \
@@ -3350,6 +3348,18 @@ middle_end/linkage_name.cmx : \
     middle_end/linkage_name.cmi
 middle_end/linkage_name.cmi : \
     utils/identifiable.cmi
+middle_end/parc.cmo : \
+    middle_end/refcnt.cmi \
+    middle_end/clambda.cmi \
+    middle_end/backend_var.cmi \
+    middle_end/parc.cmi
+middle_end/parc.cmx : \
+    middle_end/refcnt.cmx \
+    middle_end/clambda.cmx \
+    middle_end/backend_var.cmx \
+    middle_end/parc.cmi
+middle_end/parc.cmi : \
+    middle_end/clambda.cmi
 middle_end/printclambda.cmo : \
     lambda/printlambda.cmi \
     middle_end/printclambda_primitives.cmi \
@@ -3386,6 +3396,18 @@ middle_end/printclambda_primitives.cmx : \
     middle_end/printclambda_primitives.cmi
 middle_end/printclambda_primitives.cmi : \
     middle_end/clambda_primitives.cmi
+middle_end/refcnt.cmo : \
+    typing/primitive.cmi \
+    lambda/debuginfo.cmi \
+    middle_end/clambda.cmi \
+    middle_end/refcnt.cmi
+middle_end/refcnt.cmx : \
+    typing/primitive.cmx \
+    lambda/debuginfo.cmx \
+    middle_end/clambda.cmx \
+    middle_end/refcnt.cmi
+middle_end/refcnt.cmi : \
+    middle_end/clambda.cmi
 middle_end/semantics_of_primitives.cmo : \
     middle_end/clambda_primitives.cmi \
     middle_end/semantics_of_primitives.cmi
@@ -3993,6 +4015,7 @@ middle_end/closure/closure.cmi : \
 middle_end/closure/closure_middle_end.cmo : \
     middle_end/printclambda.cmi \
     typing/path.cmi \
+    middle_end/parc.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
     middle_end/compilenv.cmi \
@@ -4003,6 +4026,7 @@ middle_end/closure/closure_middle_end.cmo : \
 middle_end/closure/closure_middle_end.cmx : \
     middle_end/printclambda.cmx \
     typing/path.cmx \
+    middle_end/parc.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
     middle_end/compilenv.cmx \
