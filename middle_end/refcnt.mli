@@ -1,5 +1,5 @@
 (* Wrappers for reference counting primitives *)
 
-val dup : Clambda.ulambda -> Clambda.ulambda
+val dup : Lambda.lambda -> Lambda.lambda
 
-val drop : Clambda.ulambda -> Clambda.ulambda
+val drop : Lambda.lambda -> Lambda.lambda

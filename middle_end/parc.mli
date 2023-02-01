@@ -6,4 +6,4 @@
 
 (* Runs the Perceus algorithm and inserts reference counting
    operations *)
-val parc : Clambda.ulambda -> Clambda.ulambda
+val parc : Lambda.lambda -> Lambda.lambda
