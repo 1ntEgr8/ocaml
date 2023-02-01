@@ -31,7 +31,7 @@ let parc expr =
       end
     end
     | Lconst _ -> expr
-    | Lapply ( { ap_func; ap_args } as app) -> begin
+    | Lapply ({ ap_func; ap_args } as app) -> begin
       (* Rule SApp 
          
          Extended to handle multi-argument functions. Assumes left-to-right
@@ -53,6 +53,35 @@ let parc expr =
       in
       let ap_func' = parc_helper env' ap_func in
       Lapply { app with ap_func= ap_func'; ap_args= ap_args' }
+    end
+    | Lfunction ({ kind; params; return; body; attr; loc }) -> begin
+      (* Rule SLam and SLam-D *)
+      let xs = Vset.of_list (List.map fst params) in
+      let ys = free_variables expr in
+      let body_fvs = free_variables body in
+      let (should_own, should_drop) =
+        Vset.partition (fun x -> Vset.mem x body_fvs) xs
+      in
+      let should_dup = Vset.diff ys owned in
+      let body' = 
+        let body'' = 
+          parc_helper { borrowed= Vset.empty
+                    ; owned= Vset.union ys should_own } body
+        in
+        if Vset.is_empty should_drop then begin
+          body''
+        end else begin
+          (* Insert drops *)
+          Vset.fold (fun x acc ->
+            Lsequence(Refcnt.drop (Lvar x), acc)) should_drop body''
+        end
+      in
+      let func' =
+        lfunction ~kind ~params ~return ~body:body' ~attr ~loc
+      in
+      (* Insert dups *)
+      Vset.fold (fun x acc ->
+        Lsequence(Refcnt.dup (Lvar x), acc)) should_dup func'
     end
     | _ -> expr
   in
