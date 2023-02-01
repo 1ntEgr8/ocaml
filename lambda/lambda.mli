@@ -296,7 +296,7 @@ type lambda =
 
 and marker_info =
   | Match_begin
-  | Shape_info
+  | Matched_body
 
 and lfunction = private
   { kind: function_kind;

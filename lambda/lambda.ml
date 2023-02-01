@@ -306,7 +306,7 @@ type lambda =
 
 and marker_info =
   | Match_begin
-  | Shape_info
+  | Matched_body
 
 and lfunction =
   { kind: function_kind;
