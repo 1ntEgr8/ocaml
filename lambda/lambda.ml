@@ -306,7 +306,7 @@ type lambda =
 
 and marker_info =
   | Match_begin
-  | Matched_body
+  | Matched_body of Typedtree.pattern
 
 and lfunction =
   { kind: function_kind;

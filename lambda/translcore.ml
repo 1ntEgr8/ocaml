@@ -1091,11 +1091,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
       bind_with_value_kind
         Strict
         (new_ident, k)
-        (Lprim (Pccall (Primitive.simple
-          ~name:"caml_rc_dup_copy"
-          ~arity:1
-          ~alloc:false
-        ), [Lvar ident], Debuginfo.Scoped_location.Loc_unknown))
+        (Refcnt.dup (Lvar ident))
         (rename (Ident.Map.singleton ident new_ident) body)
     in
     let rhs_with_rc_copies =
@@ -1103,12 +1099,21 @@ and transl_match ~scopes e arg pat_expr_list partial =
     in
     (pat, rhs_with_rc_copies)
   in
-  let val_cases =
-    if !Clflags.manual_refcounting then
-      val_cases
-    else
-      List.map insert_rc_copy val_cases
+  let wrap_marker (pat, rhs) =
+    (*
+    (pat, Lmarker (Matched_body pat, rhs))
+    *)
+    (pat, rhs)
   in
+  let val_cases =
+    if !Clflags.automated_refcounting then
+      List.map (fun case ->
+        insert_rc_copy case
+        |> wrap_marker
+      ) val_cases
+    else
+      val_cases
+    in
   
   (* In presence of exception patterns, the code we generate for
 

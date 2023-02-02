@@ -861,8 +861,8 @@ let mk_dstartup f =
   "-dstartup", Arg.Unit f, " (undocumented)"
 ;;
 
-let mk_manual_refcounting f =
-  "-manual-refcounting", Arg.Unit f, " turn off automated refcount management"
+let mk_automated_refcounting f =
+  "-automated-refcounting", Arg.Unit f, " turn off automated refcount management"
 
 let mk_opaque f =
   "-opaque", Arg.Unit f,
@@ -1123,7 +1123,7 @@ module type Optcommon_options = sig
   val _dinterval : unit -> unit
   val _dstartup :  unit -> unit
 
-  val _manual_refcounting : unit -> unit
+  val _automated_refcounting : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -1500,7 +1500,7 @@ struct
     mk_dump_dir F._dump_dir;
     mk_dump_pass F._dump_pass;
 
-    mk_manual_refcounting F._manual_refcounting;
+    mk_automated_refcounting F._automated_refcounting;
 
     mk_args F._args;
     mk_args0 F._args0;
@@ -1607,7 +1607,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dump_pass F._dump_pass;
     mk_eval F._eval;
 
-    mk_manual_refcounting F._manual_refcounting;
+    mk_automated_refcounting F._automated_refcounting;
   ]
 end;;
 
@@ -1796,7 +1796,7 @@ module Default = struct
     let _dsplit = set dump_split
     let _dstartup = set keep_startup_file
     let _dump_pass pass = set_dumped_pass pass true
-    let _manual_refcounting = set manual_refcounting
+    let _automated_refcounting = set automated_refcounting
     let _inline spec =
       Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
         inline_threshold

@@ -100,11 +100,12 @@ let parc expr =
 
           Llet (let_kind', value_kind, x, e1', e2')
     | Lmarker (Match_begin, lam) -> parc_borrowed env lam
+    | Lmarker (Matched_body _, _) -> raise ParcError
     | _ -> expr
   and parc_borrowed env expr =
     match expr with
     | Lmarker (Match_begin, _) -> raise ParcError
-    | Lmarker (Matched_body, lam) ->
+    | Lmarker (Matched_body _, lam) ->
         (* TODO change the environment as per bindings *)
         let env' = env in
         parc_regular env' lam
