@@ -3349,17 +3349,25 @@ middle_end/linkage_name.cmx : \
 middle_end/linkage_name.cmi : \
     utils/identifiable.cmi
 middle_end/parc.cmo : \
-    middle_end/refcnt.cmi \
-    middle_end/clambda.cmi \
-    middle_end/backend_var.cmi \
+    lambda/refcnt.cmi \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
     middle_end/parc.cmi
 middle_end/parc.cmx : \
-    middle_end/refcnt.cmx \
-    middle_end/clambda.cmx \
-    middle_end/backend_var.cmx \
+    lambda/refcnt.cmx \
+    lambda/lambda.cmx \
+    typing/ident.cmx \
     middle_end/parc.cmi
 middle_end/parc.cmi : \
-    middle_end/clambda.cmi
+    lambda/lambda.cmi
+middle_end/parc_clambda.cmo : \
+    lambda/refcnt.cmi \
+    middle_end/clambda.cmi \
+    middle_end/backend_var.cmi
+middle_end/parc_clambda.cmx : \
+    lambda/refcnt.cmx \
+    middle_end/clambda.cmx \
+    middle_end/backend_var.cmx
 middle_end/printclambda.cmo : \
     lambda/printlambda.cmi \
     middle_end/printclambda_primitives.cmi \
@@ -3396,18 +3404,6 @@ middle_end/printclambda_primitives.cmx : \
     middle_end/printclambda_primitives.cmi
 middle_end/printclambda_primitives.cmi : \
     middle_end/clambda_primitives.cmi
-middle_end/refcnt.cmo : \
-    typing/primitive.cmi \
-    lambda/debuginfo.cmi \
-    middle_end/clambda.cmi \
-    middle_end/refcnt.cmi
-middle_end/refcnt.cmx : \
-    typing/primitive.cmx \
-    lambda/debuginfo.cmx \
-    middle_end/clambda.cmx \
-    middle_end/refcnt.cmi
-middle_end/refcnt.cmi : \
-    middle_end/clambda.cmi
 middle_end/semantics_of_primitives.cmo : \
     middle_end/clambda_primitives.cmi \
     middle_end/semantics_of_primitives.cmi
@@ -3476,6 +3472,7 @@ lambda/debuginfo.cmi : \
     parsing/asttypes.cmi
 lambda/lambda.cmo : \
     typing/types.cmi \
+    typing/typedtree.cmi \
     typing/primitive.cmi \
     typing/path.cmi \
     utils/misc.cmi \
@@ -3488,6 +3485,7 @@ lambda/lambda.cmo : \
     lambda/lambda.cmi
 lambda/lambda.cmx : \
     typing/types.cmx \
+    typing/typedtree.cmx \
     typing/primitive.cmx \
     typing/path.cmx \
     utils/misc.cmx \
@@ -3500,6 +3498,7 @@ lambda/lambda.cmx : \
     lambda/lambda.cmi
 lambda/lambda.cmi : \
     typing/types.cmi \
+    typing/typedtree.cmi \
     typing/primitive.cmi \
     typing/path.cmi \
     typing/ident.cmi \
@@ -3580,6 +3579,18 @@ lambda/printlambda.cmx : \
     lambda/printlambda.cmi
 lambda/printlambda.cmi : \
     typing/types.cmi \
+    lambda/lambda.cmi
+lambda/refcnt.cmo : \
+    typing/primitive.cmi \
+    lambda/lambda.cmi \
+    lambda/debuginfo.cmi \
+    lambda/refcnt.cmi
+lambda/refcnt.cmx : \
+    typing/primitive.cmx \
+    lambda/lambda.cmx \
+    lambda/debuginfo.cmx \
+    lambda/refcnt.cmi
+lambda/refcnt.cmi : \
     lambda/lambda.cmi
 lambda/runtimedef.cmo : \
     lambda/runtimedef.cmi
@@ -3708,6 +3719,7 @@ lambda/translcore.cmo : \
     lambda/translprim.cmi \
     lambda/translobj.cmi \
     lambda/translattribute.cmi \
+    lambda/refcnt.cmi \
     typing/printtyp.cmi \
     typing/primitive.cmi \
     typing/predef.cmi \
@@ -3735,6 +3747,7 @@ lambda/translcore.cmx : \
     lambda/translprim.cmx \
     lambda/translobj.cmx \
     lambda/translattribute.cmx \
+    lambda/refcnt.cmx \
     typing/printtyp.cmx \
     typing/primitive.cmx \
     typing/predef.cmx \
