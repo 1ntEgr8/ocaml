@@ -1218,9 +1218,10 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       close env lam
   | Lifused _ ->
       assert false
-  | Lmarker(m, lam) ->
+  | Lmarker(_m, lam) ->
       let (ulam, approx) = close env lam in
-      (Umarker(m, ulam), approx)
+      (* Do not create Umarker, we don't need it as of now *)
+      (ulam, approx)
 
 and close_list env = function
     [] -> []

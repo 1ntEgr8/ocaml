@@ -665,9 +665,14 @@ let rec lam ppf = function
       end
   | Lifused(id, expr) ->
       fprintf ppf "@[<2>(ifused@ %a@ %a)@]" Ident.print id lam expr
-  | Lmarker (_m, expr) ->
+  | Lmarker (m, expr) ->
       (* TODO(1ntEgr8): print marker_info *)
-      fprintf ppf "@[<2>(marker@ %a)@]" lam expr
+      fprintf ppf "@[<2>(marker@ [%a]@ %a)@]" marker m lam expr
+
+and marker ppf = function
+  | Match_begin -> fprintf ppf "@[match_begin@]"
+  | Matched_body pat ->
+      fprintf ppf "@[matched_body@ <%a>@]" Printpat.top_pretty pat
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->
