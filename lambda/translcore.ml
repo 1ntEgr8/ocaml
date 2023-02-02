@@ -1172,7 +1172,10 @@ and transl_match ~scopes e arg pat_expr_list partial =
     Lstaticcatch (body, (static_exception_id, val_ids), handler)
   ) classic static_handlers
   in
-  body
+  if !Clflags.automated_refcounting then
+    Lmarker(Match_begin, body)
+  else
+    body
 
 and transl_letop ~scopes loc env let_ ands param case partial =
   let rec loop prev_lam = function
