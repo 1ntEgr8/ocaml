@@ -68,7 +68,7 @@
    annot outcometree
 
    ;; lambda/
-   debuginfo lambda matching printlambda runtimedef tmc simplif switch
+   debuginfo lambda matching printlambda refcnt runtimedef tmc simplif switch
    translattribute translclass translcore translmod translobj translprim
 
    ;; bytecomp/
@@ -112,7 +112,7 @@
    compilation_unit compilenv convert_primitives internal_variable_names
    linkage_name printclambda printclambda_primitives semantics_of_primitives
    symbol variable
-   parc refcnt
+   parc
 
    ;; middle_end/closure/
    closure closure_middle_end
