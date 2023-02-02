@@ -1100,10 +1100,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
     (pat, rhs_with_rc_copies)
   in
   let wrap_marker (pat, rhs) =
-    (*
     (pat, Lmarker (Matched_body pat, rhs))
-    *)
-    (pat, rhs)
   in
   let val_cases =
     if !Clflags.automated_refcounting then
@@ -1113,7 +1110,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
       ) val_cases
     else
       val_cases
-    in
+  in
   
   (* In presence of exception patterns, the code we generate for
 

@@ -3348,18 +3348,6 @@ middle_end/linkage_name.cmx : \
     middle_end/linkage_name.cmi
 middle_end/linkage_name.cmi : \
     utils/identifiable.cmi
-middle_end/parc.cmo : \
-    lambda/refcnt.cmi \
-    lambda/lambda.cmi \
-    typing/ident.cmi \
-    middle_end/parc.cmi
-middle_end/parc.cmx : \
-    lambda/refcnt.cmx \
-    lambda/lambda.cmx \
-    typing/ident.cmx \
-    middle_end/parc.cmi
-middle_end/parc.cmi : \
-    lambda/lambda.cmi
 middle_end/parc_clambda.cmo : \
     lambda/refcnt.cmi \
     middle_end/clambda.cmi \
@@ -3555,6 +3543,18 @@ lambda/matching.cmi : \
     lambda/lambda.cmi \
     typing/ident.cmi \
     lambda/debuginfo.cmi
+lambda/parc.cmo : \
+    lambda/refcnt.cmi \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
+    lambda/parc.cmi
+lambda/parc.cmx : \
+    lambda/refcnt.cmx \
+    lambda/lambda.cmx \
+    typing/ident.cmx \
+    lambda/parc.cmi
+lambda/parc.cmi : \
+    lambda/lambda.cmi
 lambda/printlambda.cmo : \
     typing/types.cmi \
     typing/printtyp.cmi \
@@ -3787,6 +3787,7 @@ lambda/translmod.cmo : \
     typing/primitive.cmi \
     typing/predef.cmi \
     typing/path.cmi \
+    lambda/parc.cmi \
     typing/mtype.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
@@ -3809,6 +3810,7 @@ lambda/translmod.cmx : \
     typing/primitive.cmx \
     typing/predef.cmx \
     typing/path.cmx \
+    lambda/parc.cmx \
     typing/mtype.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
@@ -4028,7 +4030,6 @@ middle_end/closure/closure.cmi : \
 middle_end/closure/closure_middle_end.cmo : \
     middle_end/printclambda.cmi \
     typing/path.cmi \
-    middle_end/parc.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
     middle_end/compilenv.cmi \
@@ -4039,7 +4040,6 @@ middle_end/closure/closure_middle_end.cmo : \
 middle_end/closure/closure_middle_end.cmx : \
     middle_end/printclambda.cmx \
     typing/path.cmx \
-    middle_end/parc.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
     middle_end/compilenv.cmx \

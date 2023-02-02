@@ -128,6 +128,7 @@ LAMBDA = \
   lambda/lambda.cmo \
   lambda/printlambda.cmo \
   lambda/refcnt.cmo \
+  lambda/parc.cmo \
   lambda/switch.cmo \
   lambda/matching.cmo \
   lambda/translobj.cmo \
@@ -317,7 +318,6 @@ MIDDLE_END = \
   middle_end/printclambda.cmo \
   middle_end/semantics_of_primitives.cmo \
   middle_end/convert_primitives.cmo \
-  middle_end/parc.cmo \
   middle_end/flambda/base_types/id_types.cmo \
   middle_end/flambda/base_types/export_id.cmo \
   middle_end/flambda/base_types/tag.cmo \
