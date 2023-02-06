@@ -7,3 +7,6 @@
 (* Runs the Perceus algorithm and inserts reference counting
    operations *)
 val parc : Lambda.lambda -> Lambda.lambda
+
+(* Runs Perceus algorithm at the program level *)
+val parc_program : Lambda.program -> Lambda.program
