@@ -71,6 +71,11 @@ let clambda i backend Typedtree.{structure; coercion; _} =
   |> Profile.(record transl)
     (Translmod.transl_store_implementation i.module_name)
   |> print_if i.ppf_dump Clflags.dump_rawlambda Printlambda.program
+  |> (fun program ->
+      if !Clflags.automated_refcounting then
+        Parc.parc_program program
+      else
+        program)
   |> Profile.(record generate)
     (fun program ->
        let code = Simplif.simplify_lambda program.Lambda.code in

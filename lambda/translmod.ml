@@ -812,13 +812,6 @@ let transl_implementation_flambda module_name (str, cc) =
       (fun () -> transl_struct ~scopes Loc_unknown [] cc
                    (global_path module_id) str)
   in
-  (* Run automated reference counting *)
-  let body =
-    if !Clflags.automated_refcounting then
-      Parc.parc body
-    else
-      body
-  in
   { module_ident = module_id;
     main_module_block_size = size;
     required_globals = required_globals ~flambda:true body;
