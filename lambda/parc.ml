@@ -2,13 +2,18 @@ open Lambda
 
 exception ParcError
 
-module Logging = struct
-  let log ppf tag expr =
-    Format.fprintf ppf "[%s]@.%a@.@." tag Printlambda.lambda expr
-end
 module Vset = Ident.Set
 
 type env = { borrowed : Vset.t; owned : Vset.t }
+
+module Logging = struct
+  let log ppf tag { borrowed; owned } expr =
+    Format.fprintf ppf "[%s]@.borrowed=%a@.owned=%a@.%a@.@."
+      tag
+      Vset.print borrowed
+      Vset.print owned
+      Printlambda.lambda expr
+end
 
 let empty_env = { borrowed = Vset.empty; owned = Vset.empty }
 
@@ -19,7 +24,7 @@ let parc expr =
     match expr with
     | Lvar x ->
         (* Rule SVar and SVar-Dup *)
-        Logging.log ppf "parc_helper: Lvar" expr ;
+        Logging.log ppf "parc_helper: Lvar" env expr ;
         if Vset.is_empty owned && Vset.mem x borrowed then
           Lsequence (Refcnt.dup expr, expr)
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
@@ -28,7 +33,7 @@ let parc expr =
         else
           raise ParcError
     | Lconst _ ->
-        Logging.log ppf "parc_helper: Lconst" expr;
+        Logging.log ppf "parc_helper: Lconst" env expr;
         expr
     | Lapply ({ ap_func; ap_args } as app) ->
         (* Rule SApp
@@ -39,12 +44,12 @@ let parc expr =
            TODO(1ntEgr8): Do we have to do anything special to ensure
            left-to-right evaluation order is a guaranteed?
         *)
-        Logging.log ppf "parc_helper: Lapply" expr;
+        Logging.log ppf "parc_helper: Lapply" env expr;
         let env', ap_args' = parc_many env ap_args in
         let ap_func' = parc_regular env' ap_func in
         Lapply { app with ap_func = ap_func'; ap_args = ap_args' }
     | Lfunction { kind; params; return; body; attr; loc } ->
-        Logging.log ppf "parc_helper: Lfunction" expr;
+        Logging.log ppf "parc_helper: Lfunction" env expr;
         (* Rule SLam and SLam-D *)
         let xs = Vset.of_list (List.map fst params) in
         let ys = free_variables expr in
@@ -71,7 +76,7 @@ let parc expr =
           should_dup func'
     | Llet (_let_kind, value_kind, x, e1, e2) ->
         (* Rule SBind and SBind-D *)
-        Logging.log ppf "parc_helper: Llet" expr;
+        Logging.log ppf "parc_helper: Llet" env expr;
         if Vset.mem x borrowed || Vset.mem x owned then raise ParcError
         else
           let e2_fvs = free_variables e2 in
@@ -98,7 +103,7 @@ let parc expr =
           Llet (let_kind', value_kind, x, e1', e2')
     | Lletrec ([(x, e1)] , e2) ->
         (* Rule SBind and SBind-D *)
-        Logging.log ppf "parc_helper: Lletrec([(x, e1)], e2)" expr;
+        Logging.log ppf "parc_helper: Lletrec([(x, e1)], e2)" env expr;
         if Vset.mem x borrowed || Vset.mem x owned then raise ParcError
         else
           let e2_fvs = free_variables e2 in
@@ -117,28 +122,33 @@ let parc expr =
           let e2' = parc_regular { borrowed; owned = owned' } e2 in
           Lletrec ([(x, e1')], e2')
     | Lprim ((Pmakeblock _ as p), args, loc) ->
-      Logging.log ppf "parc_helper: Lprim(makeblock)" expr;
+      Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
       Lprim (p, snd (parc_many env args), loc)
     | Lsequence (e1, e2) ->
         let _, exprs = parc_many env [e1 ; e2] in
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
     | Lmarker (Match_begin, lam) ->
-      Logging.log ppf "parc_helper: Lmarker(Match_begin)" expr;
+      Logging.log ppf "parc_helper: Lmarker(Match_begin)" env expr;
         parc_borrowed env lam
     | Lmarker (Matched_body _, _) ->
-      Logging.log ppf "parc_helper: Lmarker(Matched_body)" expr;
+      Logging.log ppf "parc_helper: Lmarker(Matched_body)" env expr;
         raise ParcError
     | _ -> 
-        Logging.log ppf "parc_helper: unhandled" expr;
+        Logging.log ppf "parc_helper: unhandled" env expr;
         expr
   and parc_borrowed env expr =
     match expr with
-    | Lmarker (Match_begin, _) -> raise ParcError
+    | Lmarker (Match_begin, _) ->
+        Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr ;
+        raise ParcError
     | Lmarker (Matched_body _, lam) ->
         (* TODO change the environment as per bindings *)
+        Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
         let env' = env in
         parc_regular env' lam
-    | _ -> shallow_map (fun e -> parc_borrowed env e) expr
+    | _ ->
+        Logging.log ppf "parc_borrowed: catch all" env expr ;
+        shallow_map (fun e -> parc_borrowed env e) expr
   and parc_many env exprs =
     List.fold_left_map
       (fun ({ borrowed; owned } as env) e ->
@@ -153,7 +163,7 @@ let parc expr =
         (env', e'))
       env exprs
   in
-  Logging.log ppf "parc: begin" expr;
+  Logging.log ppf "parc: begin" empty_env expr;
   parc_regular empty_env expr
 
 let parc_program program =
