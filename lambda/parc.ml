@@ -129,23 +129,34 @@ let parc expr =
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
     | Lmarker (Match_begin, lam) ->
       Logging.log ppf "parc_helper: Lmarker(Match_begin)" env expr;
-        parc_borrowed env lam
+        let lam' = parc_borrowed env lam in
+        Lmarker (Match_begin, lam')
     | Lmarker (Matched_body _, _) ->
       Logging.log ppf "parc_helper: Lmarker(Matched_body)" env expr;
         raise ParcError
     | _ -> 
         Logging.log ppf "parc_helper: unhandled" env expr;
         expr
-  and parc_borrowed env expr =
+    and parc_borrowed ({ owned } as env) expr =
     match expr with
     | Lmarker (Match_begin, _) ->
         Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr ;
         raise ParcError
-    | Lmarker (Matched_body _, lam) ->
+    | Lmarker (Matched_body pat, lam) ->
         (* TODO change the environment as per bindings *)
         Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
-        let env' = env in
-        parc_regular env' lam
+        let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
+        let fv = free_variables lam in
+        let owned_bv = Vset.union owned bv in
+        let owned' = Vset.inter owned_bv fv in
+        let should_drop = Vset.diff owned_bv owned' in
+        let e' = parc_regular { env with owned= owned' } lam in
+        let lam' = 
+          Vset.fold
+            (fun x acc -> Lsequence (Refcnt.drop (Lvar x), acc))
+            should_drop e'
+        in
+        Lmarker (Matched_body pat, lam')
     | _ ->
         Logging.log ppf "parc_borrowed: catch all" env expr ;
         shallow_map (fun e -> parc_borrowed env e) expr

@@ -9,4 +9,6 @@ let prim name lam =
 
 let dup = prim "caml_rc_dup"
 
+let dup_copy = prim "caml_rc_copy"
+
 let drop = prim "caml_rc_drop"

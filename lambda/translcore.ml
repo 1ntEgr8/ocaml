@@ -1091,7 +1091,7 @@ and transl_match ~scopes e arg pat_expr_list partial =
       bind_with_value_kind
         Strict
         (new_ident, k)
-        (Refcnt.dup (Lvar ident))
+        (Refcnt.dup_copy (Lvar ident))
         (rename (Ident.Map.singleton ident new_ident) body)
     in
     let rhs_with_rc_copies =
