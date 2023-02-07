@@ -4,7 +4,7 @@ exception ParcError
 
 module Vset = Ident.Set
 
-type env = { borrowed : Vset.t; owned : Vset.t }
+type env = { borrowed : Vset.t; owned : Vset.t ; matched_expression : Ident.t option }
 
 module Logging = struct
   let log ppf tag { borrowed; owned } expr =
@@ -15,7 +15,7 @@ module Logging = struct
       Printlambda.lambda expr
 end
 
-let empty_env = { borrowed = Vset.empty; owned = Vset.empty }
+let empty_env = { borrowed = Vset.empty; owned = Vset.empty; matched_expression = None }
 
 let ppf = Format.std_formatter
 
@@ -61,7 +61,7 @@ let parc expr =
         let body' =
           let body'' =
             parc_regular
-              { borrowed = Vset.empty; owned = Vset.union ys should_own }
+              { env with borrowed = Vset.empty; owned = Vset.union ys should_own }
               body
           in
           (* Insert drops *)
@@ -86,13 +86,13 @@ let parc expr =
           in
           let e1' =
             parc_regular
-              {
+              { env with
                 borrowed = Vset.union borrowed owned2;
                 owned = Vset.diff owned owned2;
               }
               e1
           in
-          let e2' = parc_regular { borrowed; owned = owned' } e2 in
+          let e2' = parc_regular { env with borrowed; owned = owned' } e2 in
 
           (* TODO(1ntEgr8):
              Optimization - Set let_kind to Alias if transformed
@@ -113,13 +113,13 @@ let parc expr =
           in
           let e1' =
             parc_regular
-              {
+              { env with
                 borrowed = Vset.union borrowed owned2;
                 owned = Vset.diff owned owned2;
               }
               e1
           in
-          let e2' = parc_regular { borrowed; owned = owned' } e2 in
+          let e2' = parc_regular { env with borrowed; owned = owned' } e2 in
           Lletrec ([(x, e1')], e2')
     | Lprim ((Pmakeblock _ as p), args, loc) ->
       Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
@@ -135,7 +135,7 @@ let parc expr =
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
     | Lmarker (Match_begin id, lam) ->
       Logging.log ppf "parc_helper: Lmarker(Match_begin)" env expr;
-        let env' = { env with owned= Vset.remove id owned } in
+        let env' = { env with owned= Vset.remove id owned ; matched_expression = Some id } in
         let lam' = parc_borrowed env' lam in
         Lmarker (Match_begin id, lam')
     | Lmarker (Matched_body _, _) ->
@@ -144,12 +144,12 @@ let parc expr =
     | _ -> 
         Logging.log ppf "parc_helper: unhandled" env expr;
         expr
-    and parc_borrowed ({ owned } as env) expr =
+    and parc_borrowed ({ owned ; matched_expression } as env) expr =
     match expr with
     | Lmarker (Match_begin _, _) ->
         Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr ;
         raise ParcError
-    | Lmarker (Matched_body pat, lam) ->
+    | Lmarker (Matched_body pat, lam) when Option.is_some matched_expression->
         Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
         let fv = free_variables lam in
@@ -162,7 +162,24 @@ let parc expr =
             (fun x acc -> Lsequence (Refcnt.drop (Lvar x), acc))
             should_drop e'
         in
-        Lmarker (Matched_body pat, lam')
+        (* Prepend additional dups and drops pertaining to bound pattern
+           variables and the matched variable
+           
+           Specifically,
+
+           dup <bound variables> ;
+           drop <matched variable>
+         *)
+        let lam'' =
+          let id = Option.get matched_expression in
+          let with_drop = Lsequence (Refcnt.drop (Lvar id), lam') in
+          Vset.fold
+            (fun x acc -> Lsequence (Refcnt.dup (Lvar x), acc))
+            bv with_drop
+        in
+        Lmarker (Matched_body pat, lam'')
+    | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
+        raise ParcError
     | _ ->
         Logging.log ppf "parc_borrowed: catch all" env expr ;
         shallow_map (fun e -> parc_borrowed env e) expr
@@ -172,6 +189,7 @@ let parc expr =
       let e' = parc_regular { env with owned = owned' } e in
       let env' =
         {
+        env with
         borrowed = Vset.union borrowed owned';
         owned = Vset.diff owned owned';
         }
