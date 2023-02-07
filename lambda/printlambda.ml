@@ -669,7 +669,7 @@ let rec lam ppf = function
       fprintf ppf "@[<2>(marker@ [%a]@ %a)@]" marker m lam expr
 
 and marker ppf = function
-  | Match_begin -> fprintf ppf "match_begin"
+  | Match_begin x -> fprintf ppf "@[<2>match_begin@ <%a>@]" Ident.print x
   | Matched_body pat ->
       fprintf ppf "@[<2>matched_body@ <%a>@]" Printpat.pretty pat
 

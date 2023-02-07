@@ -305,7 +305,7 @@ type lambda =
   | Lmarker of marker_info * lambda
 
 and marker_info =
-  | Match_begin
+  | Match_begin of Ident.t
   | Matched_body of Typedtree.pattern
 
 and lfunction =

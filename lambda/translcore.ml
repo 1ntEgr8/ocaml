@@ -1081,7 +1081,9 @@ and transl_match ~scopes e arg pat_expr_list partial =
   in
   
   (* Refcount management *)
-      
+  (* NOTE: We don't need need to insert rc_copies anymore :). We guarantee
+     that Perceus runs before the Simplif pass *)
+  (* 
   let insert_rc_copy (pat, rhs) =
     (* TODO(1ntEgr8): check if variable is used in rhs before inserting rc_copy *)
     let ids = Typedtree.pat_bound_idents_full pat in
@@ -1099,15 +1101,15 @@ and transl_match ~scopes e arg pat_expr_list partial =
     in
     (pat, rhs_with_rc_copies)
   in
+  *)
+
+  (* Wrap each case body with the Matched_body marker *)
   let wrap_marker (pat, rhs) =
     (pat, Lmarker (Matched_body pat, rhs))
   in
   let val_cases =
     if !Clflags.automated_refcounting then
-      List.map (fun case ->
-        insert_rc_copy case
-        |> wrap_marker
-      ) val_cases
+      List.map wrap_marker val_cases
     else
       val_cases
   in
@@ -1172,9 +1174,20 @@ and transl_match ~scopes e arg pat_expr_list partial =
     Lstaticcatch (body, (static_exception_id, val_ids), handler)
   ) classic static_handlers
   in
-  if !Clflags.automated_refcounting then
-    Lmarker(Match_begin, body)
-  else
+  (* Wrap entire match statement with a marker *)
+  if !Clflags.automated_refcounting then begin
+    let id = 
+      (* Little verbose, but hey, it works! Should refactor this *)
+      match arg.exp_desc with
+      | Texp_ident _ -> 
+          let e' = transl_exp ~scopes arg in
+          (match e' with
+          | Lvar id | Lmutvar id -> id
+          | _ -> raise Parc.ParcError)
+      | _ -> raise Parc.ParcError
+    in
+      Lmarker(Match_begin id, body)
+  end else
     body
 
 and transl_letop ~scopes loc env let_ ands param case partial =

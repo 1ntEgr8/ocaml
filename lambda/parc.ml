@@ -124,13 +124,20 @@ let parc expr =
     | Lprim ((Pmakeblock _ as p), args, loc) ->
       Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
       Lprim (p, snd (parc_many env args), loc)
+    | Lprim ((Pccall desc as p), args, loc)
+      when Primitive.native_name desc = Refcnt.dup_copy_native_name ->
+      Logging.log ppf "parc_helper: Lprim(dup_copy)" env expr;
+      assert (List.length args == 1) ;
+      let _, args' = parc_many env args in
+      Lprim (p, args', loc)
     | Lsequence (e1, e2) ->
         let _, exprs = parc_many env [e1 ; e2] in
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
-    | Lmarker (Match_begin, lam) ->
+    | Lmarker (Match_begin id, lam) ->
       Logging.log ppf "parc_helper: Lmarker(Match_begin)" env expr;
-        let lam' = parc_borrowed env lam in
-        Lmarker (Match_begin, lam')
+        let env' = { env with owned= Vset.remove id owned } in
+        let lam' = parc_borrowed env' lam in
+        Lmarker (Match_begin id, lam')
     | Lmarker (Matched_body _, _) ->
       Logging.log ppf "parc_helper: Lmarker(Matched_body)" env expr;
         raise ParcError
@@ -139,11 +146,10 @@ let parc expr =
         expr
     and parc_borrowed ({ owned } as env) expr =
     match expr with
-    | Lmarker (Match_begin, _) ->
+    | Lmarker (Match_begin _, _) ->
         Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr ;
         raise ParcError
     | Lmarker (Matched_body pat, lam) ->
-        (* TODO change the environment as per bindings *)
         Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
         let fv = free_variables lam in
@@ -161,18 +167,17 @@ let parc expr =
         Logging.log ppf "parc_borrowed: catch all" env expr ;
         shallow_map (fun e -> parc_borrowed env e) expr
   and parc_many env exprs =
-    List.fold_left_map
-      (fun ({ borrowed; owned } as env) e ->
-        let owned' = Vset.inter owned (free_variables e) in
-        let e' = parc_regular { env with owned = owned' } e in
-        let env' =
-          {
-            borrowed = Vset.union borrowed owned';
-            owned = Vset.diff owned owned';
-          }
-        in
-        (env', e'))
-      env exprs
+    List.fold_right (fun e (({ borrowed; owned } as env), es) ->
+      let owned' = Vset.inter owned (free_variables e) in
+      let e' = parc_regular { env with owned = owned' } e in
+      let env' =
+        {
+        borrowed = Vset.union borrowed owned';
+        owned = Vset.diff owned owned';
+        }
+      in
+      (env', e' :: es)
+    ) exprs (env, [])
   in
   Logging.log ppf "parc: begin" empty_env expr;
   parc_regular empty_env expr
