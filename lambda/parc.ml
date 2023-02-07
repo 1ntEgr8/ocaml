@@ -26,7 +26,7 @@ let parc expr =
         (* Rule SVar and SVar-Dup *)
         Logging.log ppf "parc_helper: Lvar" env expr ;
         if Vset.is_empty owned && Vset.mem x borrowed then
-          Lsequence (Refcnt.dup expr, expr)
+          Refcnt.with_dup x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then
           expr
@@ -65,16 +65,12 @@ let parc expr =
               body
           in
           (* Insert drops *)
-          Vset.fold
-            (fun x acc -> Lsequence (Refcnt.drop (Lvar x), acc))
-            should_drop body''
+          Refcnt.with_drops should_drop body''
         in
         let func' = lfunction ~kind ~params ~return ~body:body' ~attr ~loc in
         (* Insert dups *)
-        Vset.fold
-          (fun x acc -> Lsequence (Refcnt.dup (Lvar x), acc))
-          should_dup func'
-    | Llet (_let_kind, value_kind, x, e1, e2) ->
+        Refcnt.with_dups should_dup func'
+      | Llet (_let_kind, value_kind, x, e1, e2) ->
         (* Rule SBind and SBind-D *)
         Logging.log ppf "parc_helper: Llet" env expr;
         if Vset.mem x borrowed || Vset.mem x owned then raise ParcError
@@ -151,33 +147,27 @@ let parc expr =
         raise ParcError
     | Lmarker (Matched_body pat, lam) when Option.is_some matched_expression->
         Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
+        let id = Option.get matched_expression in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
         let fv = free_variables lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
         let e' = parc_regular { env with owned= owned' } lam in
-        let lam' = 
-          Vset.fold
-            (fun x acc -> Lsequence (Refcnt.drop (Lvar x), acc))
-            should_drop e'
-        in
-        (* Prepend additional dups and drops pertaining to bound pattern
-           variables and the matched variable
+        let lam' =
+          Refcnt.with_drops should_drop e'
+          (* Prepend additional dups and drops pertaining to bound pattern
+             variables and the matched variable
            
-           Specifically,
+            Specifically,
 
-           dup <bound variables> ;
-           drop <matched variable>
-         *)
-        let lam'' =
-          let id = Option.get matched_expression in
-          let with_drop = Lsequence (Refcnt.drop (Lvar id), lam') in
-          Vset.fold
-            (fun x acc -> Lsequence (Refcnt.dup (Lvar x), acc))
-            bv with_drop
+            dup <bound variables> ;
+            drop <matched variable>
+          *)
+          |> Refcnt.with_drop id
+          |> Refcnt.with_dups bv
         in
-        Lmarker (Matched_body pat, lam'')
+        Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
         raise ParcError
     | _ ->
