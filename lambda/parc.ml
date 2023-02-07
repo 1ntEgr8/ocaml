@@ -42,12 +42,12 @@ let parc expr =
     | Lvar x ->
         (* Rule SVar and SVar-Dup *)
         Logging.log ppf "parc_helper: Lvar" env expr ;
-        if Vset.is_empty owned && Vset.mem x borrowed then
+        if Vset.mem x bound_funcs then
+          expr
+        else if Vset.is_empty owned && Vset.mem x borrowed then
           Refcnt.with_dup x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then
-          expr
-        else if Vset.mem x bound_funcs then
           expr
         else
           raise ParcError
