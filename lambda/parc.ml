@@ -4,23 +4,40 @@ exception ParcError
 
 module Vset = Ident.Set
 
-type env = { borrowed : Vset.t; owned : Vset.t ; matched_expression : Ident.t option }
+type env = { 
+  borrowed : Vset.t ;
+  owned : Vset.t ;
+  matched_expression : Ident.t option ;
+  bound_funcs : Vset.t ;
+}
 
 module Logging = struct
-  let log ppf tag { borrowed; owned } expr =
-    Format.fprintf ppf "[%s]@.borrowed=%a@.owned=%a@.%a@.@."
-      tag
-      Vset.print borrowed
-      Vset.print owned
-      Printlambda.lambda expr
+  let log ppf tag { borrowed; owned; bound_funcs } expr =
+    if !Clflags.dump_parc then
+      Format.fprintf ppf "[%s]@.borrowed=%a@.owned=%a@.bound_funcs=%a@.%a@.@."
+        tag
+        Vset.print borrowed
+        Vset.print owned
+        Vset.print bound_funcs
+        Printlambda.lambda expr
+
+  let dump_if ppf expr =
+    if !Clflags.dump_parc then begin
+      Format.fprintf ppf "@.automated_refcounting:@.";
+      Printlambda.lambda ppf expr
+    end;
+    expr
 end
 
-let empty_env = { borrowed = Vset.empty; owned = Vset.empty; matched_expression = None }
+let empty_env = { borrowed = Vset.empty; owned = Vset.empty; matched_expression = None; bound_funcs = Vset.empty }
 
 let ppf = Format.std_formatter
 
+let free_variables ({ bound_funcs }) expr =
+  Vset.diff (Lambda.free_variables expr) bound_funcs
+
 let parc expr =
-  let rec parc_regular ({ borrowed; owned } as env) expr =
+  let rec parc_regular ({ borrowed; owned; bound_funcs } as env) expr =
     match expr with
     | Lvar x ->
         (* Rule SVar and SVar-Dup *)
@@ -29,6 +46,8 @@ let parc expr =
           Refcnt.with_dup x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then
+          expr
+        else if Vset.mem x bound_funcs then
           expr
         else
           raise ParcError
@@ -52,8 +71,8 @@ let parc expr =
         Logging.log ppf "parc_helper: Lfunction" env expr;
         (* Rule SLam and SLam-D *)
         let xs = Vset.of_list (List.map fst params) in
-        let ys = free_variables expr in
-        let body_fvs = free_variables body in
+        let ys = free_variables env expr in
+        let body_fvs = free_variables env body in
         let should_own, should_drop =
           Vset.partition (fun x -> Vset.mem x body_fvs) xs
         in
@@ -75,7 +94,7 @@ let parc expr =
         Logging.log ppf "parc_helper: Llet" env expr;
         if Vset.mem x borrowed || Vset.mem x owned then raise ParcError
         else
-          let e2_fvs = free_variables e2 in
+          let e2_fvs = free_variables env e2 in
           let owned2 = Vset.inter owned (Vset.remove x e2_fvs) in
           let owned' =
             if Vset.mem x e2_fvs then Vset.add x owned2 else owned2
@@ -98,11 +117,18 @@ let parc expr =
 
           Llet (let_kind', value_kind, x, e1', e2')
     | Lletrec ([(x, e1)] , e2) ->
+        (* TODO two cases here
+           - function defs
+            - here, we do not want to dup/drop binders
+           - recursive definitions of values
+            - here, we must dup/drop binders
+        *)
+
         (* Rule SBind and SBind-D *)
         Logging.log ppf "parc_helper: Lletrec([(x, e1)], e2)" env expr;
         if Vset.mem x borrowed || Vset.mem x owned then raise ParcError
         else
-          let e2_fvs = free_variables e2 in
+          let e2_fvs = free_variables env e2 in
           let owned2 = Vset.inter owned (Vset.remove x e2_fvs) in
           let owned' =
             if Vset.mem x e2_fvs then Vset.add x owned2 else owned2
@@ -112,10 +138,11 @@ let parc expr =
               { env with
                 borrowed = Vset.union borrowed owned2;
                 owned = Vset.diff owned owned2;
+                bound_funcs= Vset.add x bound_funcs;
               }
               e1
           in
-          let e2' = parc_regular { env with borrowed; owned = owned' } e2 in
+          let e2' = parc_regular { env with borrowed; owned = owned'; bound_funcs= Vset.add x bound_funcs } e2 in
           Lletrec ([(x, e1')], e2')
     | Lprim ((Pmakeblock _ as p), args, loc) ->
       Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
@@ -149,7 +176,7 @@ let parc expr =
         Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr ;
         let id = Option.get matched_expression in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
-        let fv = free_variables lam in
+        let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
@@ -175,7 +202,7 @@ let parc expr =
         shallow_map (fun e -> parc_borrowed env e) expr
   and parc_many env exprs =
     List.fold_right (fun e (({ borrowed; owned } as env), es) ->
-      let owned' = Vset.inter owned (free_variables e) in
+      let owned' = Vset.inter owned (free_variables env e) in
       let e' = parc_regular { env with owned = owned' } e in
       let env' =
         {
@@ -189,6 +216,7 @@ let parc expr =
   in
   Logging.log ppf "parc: begin" empty_env expr;
   parc_regular empty_env expr
+  |> Logging.dump_if ppf
 
 let parc_program program =
   let code = parc program.code in

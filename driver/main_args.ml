@@ -863,6 +863,11 @@ let mk_dstartup f =
 
 let mk_automated_refcounting f =
   "-automated-refcounting", Arg.Unit f, " turn off automated refcount management"
+;;
+
+let mk_dparc f =
+  "-dparc", Arg.Unit f, " dump Lambda form after automated reference counting pass"
+;;
 
 let mk_opaque f =
   "-opaque", Arg.Unit f,
@@ -1124,6 +1129,7 @@ module type Optcommon_options = sig
   val _dstartup :  unit -> unit
 
   val _automated_refcounting : unit -> unit
+  val _dparc : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -1501,6 +1507,7 @@ struct
     mk_dump_pass F._dump_pass;
 
     mk_automated_refcounting F._automated_refcounting;
+    mk_dparc F._dparc;
 
     mk_args F._args;
     mk_args0 F._args0;
@@ -1608,6 +1615,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_eval F._eval;
 
     mk_automated_refcounting F._automated_refcounting;
+    mk_dparc F._dparc;
   ]
 end;;
 
@@ -1797,6 +1805,7 @@ module Default = struct
     let _dstartup = set keep_startup_file
     let _dump_pass pass = set_dumped_pass pass true
     let _automated_refcounting = set automated_refcounting
+    let _dparc = set dump_parc
     let _inline spec =
       Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
         inline_threshold

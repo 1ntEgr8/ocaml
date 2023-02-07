@@ -225,6 +225,7 @@ module type Optcommon_options = sig
   val _dstartup :  unit -> unit
 
   val _automated_refcounting : unit -> unit
+  val _dparc : unit -> unit
 end;;
 
 module type Optcomp_options = sig
