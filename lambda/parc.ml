@@ -61,7 +61,7 @@ let parc expr =
            evaluation order.
 
            TODO(1ntEgr8): Do we have to do anything special to ensure
-           left-to-right evaluation order is a guaranteed?
+           left-to-right evaluation order is guaranteed?
         *)
         Logging.log ppf "parc_helper: Lapply" env expr;
         let env', ap_args' = parc_many env ap_args in
