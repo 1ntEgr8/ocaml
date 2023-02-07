@@ -74,6 +74,7 @@ let clambda i backend Typedtree.{structure; coercion; _} =
   |> (fun program ->
       if !Clflags.automated_refcounting then
         Parc.parc_program program
+        |> print_if i.ppf_dump Clflags.automated_refcounting Printlambda.program
       else
         program)
   |> Profile.(record generate)
