@@ -1,4 +1,5 @@
 open Lambda
+open Refcnt
 
 exception ParcError
 
@@ -21,7 +22,9 @@ module Logging = struct
   let dump_if ppf expr =
     if !Clflags.dump_parc then (
       Format.fprintf ppf "@.automated_refcounting:@.";
-      Printlambda.lambda ppf expr);
+      Printlambda.lambda ppf expr ;
+      Format.pp_print_newline ppf ();
+    );
     expr
 end
 
@@ -46,7 +49,7 @@ let parc expr =
         Logging.log ppf "parc_helper: Lvar" env expr;
         if Vset.mem x bound_funcs then expr
         else if Vset.is_empty owned && Vset.mem x borrowed then
-          Refcnt.with_dup x expr
+          with_dup x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then expr
         else raise ParcError
@@ -87,11 +90,11 @@ let parc expr =
               body
           in
           (* Insert drops *)
-          Refcnt.with_drops should_drop body''
+          with_drops should_drop body''
         in
         let func' = lfunction ~kind ~params ~return ~body:body' ~attr ~loc in
         (* Insert dups *)
-        Refcnt.with_dups should_dup func'
+        with_dups should_dup func'
     | Llet (_let_kind, value_kind, x, e1, e2) ->
         (* Rule SBind and SBind-D *)
         Logging.log ppf "parc_helper: Llet" env expr;
@@ -162,11 +165,34 @@ let parc expr =
         Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
         Lprim (p, snd (parc_many env args), loc)
     | Lprim ((Pccall desc as p), args, loc)
-      when Primitive.native_name desc = Refcnt.dup_copy_native_name ->
+      when Primitive.native_name desc = dup_copy_native_name ->
         Logging.log ppf "parc_helper: Lprim(dup_copy)" env expr;
         assert (List.length args == 1);
         let _, args' = parc_many env args in
         Lprim (p, args', loc)
+    | Lifthenelse (cond, e1, e2) ->
+        let owned_e1 = Vset.inter owned (free_variables env e1) in
+        let should_drop_e1 = Vset.diff owned owned_e1 in
+        let owned_e2 = Vset.inter owned (free_variables env e2) in
+        let should_drop_e2 = Vset.diff owned owned_e2 in
+        let e1' =
+          parc_regular { env with owned= owned_e1 } e1
+          |> with_drops should_drop_e1
+        in
+        let e2' =
+          parc_regular { env with owned= owned_e2 } e2
+          |> with_drops should_drop_e2
+        in
+        let cond' = 
+          parc_regular
+          {
+            env with
+            borrowed= Vset.union (Vset.union borrowed owned_e1) owned_e2 ;
+            owned= Vset.diff (Vset.diff owned owned_e1) owned_e2 ;
+          }
+          cond
+        in
+        Lifthenelse (cond', with_drops should_drop_e1 e1', e2')
     | Lsequence (e1, e2) ->
         let _, exprs = parc_many env [ e1; e2 ] in
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
@@ -202,7 +228,7 @@ let parc expr =
         let should_drop = Vset.diff owned_bv owned' in
         let e' = parc_regular { env with owned = owned' } lam in
         let lam' =
-          Refcnt.with_drops should_drop e'
+          with_drops should_drop e'
           (* Prepend additional dups and drops pertaining to bound pattern
               variables and the matched variable
 
@@ -211,8 +237,8 @@ let parc expr =
              dup <bound variables> ;
              drop <matched variable>
           *)
-          |> Refcnt.with_drop id
-          |> Refcnt.with_dups bv
+          |> with_drop id
+          |> with_dups bv
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
