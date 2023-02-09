@@ -182,9 +182,7 @@ let parc expr =
       Primitive.native_name desc = dup_native_name ||
       Primitive.native_name desc = drop_native_name)
       ->
-        (* Do not perform reference counting on reference counting operations
-           :)
-        *)
+        (* Do not perform refcounting on refcounting operations *)
         expr
     | Lprim (p, args, loc) ->
       Logging.log ppf "parc_helper: Lprim(_)" env expr;
