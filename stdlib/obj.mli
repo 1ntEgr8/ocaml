@@ -80,6 +80,9 @@ external with_tag : int -> t -> t = "caml_obj_with_tag"
   (* @since 4.09.0 *)
 
 (* Refcount helpers *)
+
+(* NB: If you change the name of the caml_* primitive, make sure to also
+   update [lambda/refcnt.ml{i}] *)
 external get_refcount : 'a -> int = "caml_obj_get_refcount"
 
 external my_dup  : 'a -> 'a   = "caml_rc_dup_copy"

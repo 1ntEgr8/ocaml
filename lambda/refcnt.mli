@@ -1,5 +1,7 @@
 (* Wrappers for reference counting primitives *)
 
+val get_refcount_native_name : string
+
 val dup_native_name : string
 val dup : Lambda.lambda -> Lambda.lambda
 val with_dup : Ident.t -> Lambda.lambda -> Lambda.lambda

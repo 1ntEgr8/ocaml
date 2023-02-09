@@ -178,15 +178,18 @@ let parc expr =
         Lprim (p, args', loc)
     | Lprim ((Pccall desc), _, _)
       when
-      (Primitive.native_name desc = "caml_obj_get_refcount" ||
+      (Primitive.native_name desc = get_refcount_native_name ||
       Primitive.native_name desc = dup_native_name ||
       Primitive.native_name desc = drop_native_name)
       ->
+        (* Do not perform reference counting on reference counting operations
+           :)
+        *)
         expr
     | Lprim (p, args, loc) ->
       Logging.log ppf "parc_helper: Lprim(_)" env expr;
       (* TODO address unecessary dups *)
-      let _, args' = parc_many_right env args in
+      let _, args' = parc_many_left env args in
       Lprim (p, args', loc)
     | Lifthenelse (cond, e1, e2) ->
         let owned_e1 = Vset.inter owned (free_variables env e1) in

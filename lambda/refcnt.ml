@@ -7,6 +7,8 @@ let prim name lam =
           ~alloc:false
       ), [lam], Debuginfo.Scoped_location.Loc_unknown)
 
+let get_refcount_native_name = "caml_obj_get_refcount"
+
 let dup_native_name = "caml_rc_dup"
 let dup = prim dup_native_name
 let with_dup x expr = Lsequence (dup (Lvar x), expr)
