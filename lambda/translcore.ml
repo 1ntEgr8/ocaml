@@ -1183,8 +1183,12 @@ and transl_match ~scopes e arg pat_expr_list partial =
           let e' = transl_exp ~scopes arg in
           (match e' with
           | Lvar id | Lmutvar id -> id
-          | _ -> raise Parc.ParcError)
-      | _ -> raise Parc.ParcError
+          | _ ->
+              Format.printf "match-wrapping: not normalized after translation" ;
+              raise Parc.ParcError)
+      | _ -> 
+          Format.printf "match-wrapping: not normalized before translation\n" ;
+          raise Parc.ParcError
     in
       Lmarker(Match_begin id, body)
   end else

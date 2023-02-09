@@ -41,6 +41,12 @@ let ppf = Format.std_formatter
 let free_variables { bound_funcs } expr =
   Vset.diff (Lambda.free_variables expr) bound_funcs
 
+(* TODOS
+  - proper defn of parc_borrowed
+  - update defn of if-then-else
+  - look up eval order for lprim args
+*)
+
 let parc expr =
   let rec parc_regular ({ borrowed; owned; bound_funcs } as env) expr =
     match expr with
@@ -59,14 +65,15 @@ let parc expr =
     | Lapply ({ ap_func; ap_args } as app) ->
         (* Rule SApp
 
-           Extended to handle multi-argument functions. Assumes left-to-right
-           evaluation order.
-
-           TODO(1ntEgr8): Do we have to do anything special to ensure
-           left-to-right evaluation order is guaranteed?
-        *)
+           Extended to handle multi-argument functions.
+         *)
         Logging.log ppf "parc_helper: Lapply" env expr;
-        let env', ap_args' = parc_many env ap_args in
+
+        (* First, the function is evaluated, then the arguments. So, we run
+           [parc_many_left] first on the arguments, and only then run
+           [parc_regular] on the function with the resulting environment.
+         *)
+        let env', ap_args' = parc_many_left env ap_args in
         let ap_func' = parc_regular env' ap_func in
         Lapply { app with ap_func = ap_func'; ap_args = ap_args' }
     | Lfunction { kind; params; return; body; attr; loc } ->
@@ -163,13 +170,25 @@ let parc expr =
           Lletrec ([ (x, e1') ], e2')
     | Lprim ((Pmakeblock _ as p), args, loc) ->
         Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
-        Lprim (p, snd (parc_many env args), loc)
+        Lprim (p, snd (parc_many_right env args), loc)
     | Lprim ((Pccall desc as p), args, loc)
       when Primitive.native_name desc = dup_copy_native_name ->
         Logging.log ppf "parc_helper: Lprim(dup_copy)" env expr;
         assert (List.length args == 1);
-        let _, args' = parc_many env args in
+        let _, args' = parc_many_right env args in
         Lprim (p, args', loc)
+    | Lprim ((Pccall desc), _, _)
+      when
+      (Primitive.native_name desc = "caml_obj_get_refcount" ||
+      Primitive.native_name desc = dup_native_name ||
+      Primitive.native_name desc = drop_native_name)
+      ->
+        expr
+    | Lprim (p, args, loc) ->
+      Logging.log ppf "parc_helper: Lprim(_)" env expr;
+      (* TODO address unecessary dups *)
+      let _, args' = parc_many_right env args in
+      Lprim (p, args', loc)
     | Lifthenelse (cond, e1, e2) ->
         let owned_e1 = Vset.inter owned (free_variables env e1) in
         let should_drop_e1 = Vset.diff owned owned_e1 in
@@ -183,7 +202,15 @@ let parc expr =
           parc_regular { env with owned= owned_e2 } e2
           |> with_drops should_drop_e2
         in
-        let cond' = 
+        let cond' =
+          parc_borrowed 
+          {
+            env with
+            borrowed= Vset.union (Vset.union borrowed owned_e1) owned_e2 ;
+            owned= Vset.diff (Vset.diff owned owned_e1) owned_e2 ;
+          }
+          cond
+          (*
           parc_regular
           {
             env with
@@ -191,10 +218,11 @@ let parc expr =
             owned= Vset.diff (Vset.diff owned owned_e1) owned_e2 ;
           }
           cond
+          *)
         in
-        Lifthenelse (cond', with_drops should_drop_e1 e1', e2')
+        Lifthenelse (cond', e1', e2')
     | Lsequence (e1, e2) ->
-        let _, exprs = parc_many env [ e1; e2 ] in
+        let _, exprs = parc_many_right env [ e1; e2 ] in
         Lsequence (List.hd exprs, List.hd (List.tl exprs))
     | Lmarker (Match_begin id, lam) ->
         Logging.log ppf "parc_helper: Lmarker(Match_begin)" env expr;
@@ -215,6 +243,8 @@ let parc expr =
         expr
   and parc_borrowed ({ owned; matched_expression } as env) expr =
     match expr with
+    | Lapply _ ->
+        parc_regular env expr
     | Lmarker (Match_begin _, _) ->
         Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr;
         raise ParcError
@@ -246,21 +276,36 @@ let parc expr =
     | _ ->
         Logging.log ppf "parc_borrowed: catch all" env expr;
         shallow_map (fun e -> parc_borrowed env e) expr
-  and parc_many env exprs =
-    List.fold_right
-      (fun e (({ borrowed; owned } as env), es) ->
-        let owned' = Vset.inter owned (free_variables env e) in
-        let e' = parc_regular { env with owned = owned' } e in
-        let env' =
-          {
-            env with
-            borrowed = Vset.union borrowed owned';
-            owned = Vset.diff owned owned';
-          }
-        in
-        (env', e' :: es))
-      exprs (env, [])
-  in
+
+  (* [parc], but on expression lists
+
+     We can either apply the algorithm left-to-right or right-to-left.
+     The choice depends on the expression evaluation order.
+
+     If the eval order if left-to-right, use [parc_many_right]
+     If the eval order if right-to-left, use [parc_many_left]
+     otherwise, it is not safe to use any of the [parc_many] variants; You
+     will have to invoke [parc] manually on each expression.
+  *)
+  and parc_many_right env exprs =
+    List.fold_right (fun e (env, es) ->
+      let (env', e') = parc_many_f env e in
+      (env', e' :: es)
+    ) exprs (env, [])
+  and parc_many_left env exprs =
+    List.fold_left_map parc_many_f env exprs
+  and parc_many_f ({ borrowed; owned } as env) e =
+    let owned' = Vset.inter owned (free_variables env e) in
+    let e' = parc_regular { env with owned = owned' } e in
+    let env' =
+      {
+        env with
+        borrowed = Vset.union borrowed owned';
+        owned = Vset.diff owned owned';
+      }
+    in
+    (env', e')
+ in
   Logging.log ppf "parc: begin" empty_env expr;
   parc_regular empty_env expr |> Logging.dump_if ppf
 
