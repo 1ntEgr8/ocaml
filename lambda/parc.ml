@@ -41,19 +41,18 @@ let ppf = Format.std_formatter
 let free_variables { bound_funcs } expr =
   Vset.diff (Lambda.free_variables expr) bound_funcs
 
-(* TODOS
-  - proper defn of parc_borrowed
-  - update defn of if-then-else
-  - look up eval order for lprim args
-*)
-
 let parc expr =
-  let rec parc_regular ({ borrowed; owned; bound_funcs } as env) expr =
+  let rec parc_regular ({ borrowed; owned; bound_funcs; matched_expression } as env) expr =
     match expr with
     | Lvar x ->
         (* Rule SVar and SVar-Dup *)
         Logging.log ppf "parc_helper: Lvar" env expr;
-        if Vset.mem x bound_funcs then expr
+        let is_matched =
+          match matched_expression with
+          | Some y -> Ident.same x y
+          | None -> false
+        in
+        if Vset.mem x bound_funcs || is_matched then expr
         else if Vset.is_empty owned && Vset.mem x borrowed then
           with_dup x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
@@ -259,16 +258,12 @@ let parc expr =
         let e' = parc_regular { env with owned = owned' } lam in
         let lam' =
           with_drops should_drop e'
-          (* Prepend additional dups and drops pertaining to bound pattern
-              variables and the matched variable
-
-             Specifically,
-
-             dup <bound variables> ;
-             drop <matched variable>
-          *)
-          |> with_drop id
-          |> with_dups bv
+          |> (fun lam ->
+                if Vset.mem id fv then
+                  lam
+                else
+                  with_drop id lam
+                  |> with_dups bv)
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
