@@ -41,6 +41,13 @@ let ppf = Format.std_formatter
 let free_variables { bound_funcs } expr =
   Vset.diff (Lambda.free_variables expr) bound_funcs
 
+(* Need to do the following today:
+
+   - keep track of a shape map
+   - normalize match statements
+   - dup/drop for primitives
+*)
+
 let parc expr =
   let rec parc_regular ({ borrowed; owned; bound_funcs; matched_expression } as env) expr =
     match expr with
@@ -183,9 +190,10 @@ let parc expr =
       Primitive.native_name desc = drop_native_name)
       ->
         expr
+    (* TODO(1ntEgr8): Might need to handle certain primitives differently (like
+       array primitives) *)
     | Lprim (p, args, loc) ->
       Logging.log ppf "parc_helper: Lprim(_)" env expr;
-      (* TODO address unecessary dups *)
       let _, args' = parc_many_right env args in
       Lprim (p, args', loc)
     | Lifthenelse (cond, e1, e2) ->
@@ -202,14 +210,6 @@ let parc expr =
           |> with_drops should_drop_e2
         in
         let cond' =
-          parc_borrowed 
-          {
-            env with
-            borrowed= Vset.union (Vset.union borrowed owned_e1) owned_e2 ;
-            owned= Vset.diff (Vset.diff owned owned_e1) owned_e2 ;
-          }
-          cond
-          (*
           parc_regular
           {
             env with
@@ -217,7 +217,6 @@ let parc expr =
             owned= Vset.diff (Vset.diff owned owned_e1) owned_e2 ;
           }
           cond
-          *)
         in
         Lifthenelse (cond', e1', e2')
     | Lsequence (e1, e2) ->
@@ -232,7 +231,7 @@ let parc expr =
             matched_expression = Some id;
           }
         in
-        let lam' = parc_borrowed env' lam in
+        let lam' = parc_match env' lam in
         Lmarker (Match_begin id, lam')
     | Lmarker (Matched_body _, _) ->
         Logging.log ppf "parc_helper: Lmarker(Matched_body)" env expr;
@@ -240,15 +239,14 @@ let parc expr =
     | _ ->
         Logging.log ppf "parc_helper: unhandled" env expr;
         expr
-  and parc_borrowed ({ owned; matched_expression } as env) expr =
+  and parc_match ({ owned; matched_expression } as env) expr =
+    (* TODO(1ntEgr8): Need to update this to handle guards *)
     match expr with
-    | Lapply _ ->
-        parc_regular env expr
     | Lmarker (Match_begin _, _) ->
-        Logging.log ppf "parc_borrowed: Lmarker(Match_begin)" env expr;
+        Logging.log ppf "parc_match: Lmarker(Match_begin)" env expr;
         raise ParcError
     | Lmarker (Matched_body pat, lam) when Option.is_some matched_expression ->
-        Logging.log ppf "parc_borrowed: Lmarker(Matched_body)" env expr;
+        Logging.log ppf "parc_match: Lmarker(Matched_body)" env expr;
         let id = Option.get matched_expression in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
         let fv = free_variables env lam in
@@ -269,8 +267,8 @@ let parc expr =
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
         raise ParcError
     | _ ->
-        Logging.log ppf "parc_borrowed: catch all" env expr;
-        shallow_map (fun e -> parc_borrowed env e) expr
+        Logging.log ppf "parc_match: catch all" env expr;
+        shallow_map (fun e -> parc_match env e) expr
 
   (* [parc], but on expression lists
 
