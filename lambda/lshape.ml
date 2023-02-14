@@ -20,6 +20,14 @@ let infer_from_value_kind vk =
 
 let infer_from_pattern id pat =
   let open Types in
+  let bvs = pat_bound_idents_full pat in
+  let shapes =
+    List.fold_left (fun shapes (id, _, ty) ->
+      let vk = Typeopt.value_kind pat.pat_env ty in
+      let shape' = infer_from_value_kind vk in
+      Ident.Map.add id shape' shapes
+    ) Ident.Map.empty bvs
+  in
   let id_shape =
     match pat.pat_desc with
     | Tpat_construct (_, cstr, _, _) ->
@@ -30,7 +38,7 @@ let infer_from_pattern id pat =
     | Tpat_tuple _ -> Some dummy_shape
     | _ -> None
   in
-  Ident.Map.singleton id id_shape
+  Ident.Map.add id id_shape shapes
 
 let is_int s =
   match s with
