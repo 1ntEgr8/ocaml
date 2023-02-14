@@ -1,5 +1,6 @@
 open Format
 open Lambda
+open Typedtree
 
 type shape_info =
   | Empty
@@ -12,6 +13,10 @@ let infer_from_value_kind vk =
   match vk with
   | Pintval -> (Pintval, Some Empty)
   | _ -> (vk, None)
+
+let infer_from_pattern pat =
+  let vk = Typeopt.value_kind pat.pat_env pat.pat_type in
+  (vk, None)
 
 let is_int (vk, _) =
   match vk with

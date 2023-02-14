@@ -198,14 +198,14 @@ let parc expr =
           Lletrec ([ (x, e1') ], e2')
     | Lprim ((Pmakeblock _ as p), args, loc) ->
         Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
-        Lprim (p, snd (parc_many_right env args), loc)
+        Lprim (p, snd (parc_many_left env args), loc)
     | Lprim ((Pccall desc), _, _) when is_rc_op (Primitive.native_name desc) ->
         expr
     (* TODO(1ntEgr8): Might need to handle certain primitives differently (like
        array primitives) *)
     | Lprim (p, args, loc) ->
       Logging.log ppf "parc_helper: Lprim(_)" env expr;
-      let _, args' = parc_many_right env args in
+      let _, args' = parc_many_left env args in
       Lprim (p, args', loc)
     | Lifthenelse (cond, e1, e2) ->
         let owned_e1 = Vset.inter owned (free_variables env e1) in
@@ -260,19 +260,17 @@ let parc expr =
     | Lmarker (Matched_body pat, lam) when Option.is_some matched_expression ->
         Logging.log ppf "parc_match: Lmarker(Matched_body)" env expr;
         let id = Option.get matched_expression in
+        let id_shape = Lshape.infer_from_pattern pat in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
-
-        (* Given a pattern, we wish to obtain the following:
-
-          - shape of the constructor
-          - shape of each field
-        *)
-
         let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
-        let e' = parc_regular { env with owned = owned' } lam in
+        let e' = parc_regular {
+          env with
+          owned = owned' ;
+          shapes = Ident.Map.add id id_shape shapes ;
+        } lam in
         let lam' =
           Drop.sequence_many shapes should_drop e'
           |> (fun lam ->
