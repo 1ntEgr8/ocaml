@@ -13,20 +13,37 @@ let infer_from_value_kind vk =
   | Pintval -> (Pintval, Some Empty)
   | _ -> (vk, None)
 
-let should_refcount (vk, _) =
+let is_int (vk, _) =
   match vk with
-  | Pgenval -> true
+  | Pintval -> true
   | _ -> false
+
+let is_ptr s =
+  match s with
+  | Pgenval, Some s -> s <> Empty
+  | _ -> false
+
+let boxed_integer_name = function
+  | Pnativeint -> "nativeint"
+  | Pint32 -> "int32"
+  | Pint64 -> "int64"
+
+let field_kind = function
+  | Pgenval -> "*"
+  | Pintval -> "int"
+  | Pfloatval -> "float"
+  | Pboxedintval bi -> boxed_integer_name bi
 
 let rec print_shape_info ppf = function
   | Empty -> fprintf ppf "()"
-  | Simple vk -> fprintf ppf "%a" Printlambda.value_kind vk
+  | Simple vk -> fprintf ppf "%s" (field_kind vk)
   | Compound sis ->
       fprintf ppf "@[<2>(" ;
       List.iter (print_shape_info ppf) sis ;
       fprintf ppf ")@]"
 
 let print ppf (vk, si) =
-  fprintf ppf "@[<2>value_kind: %a, shape_info: %a@]"
-    Printlambda.value_kind vk
-    (pp_print_option print_shape_info) si
+  fprintf ppf "@[<2>%s::<%a>@]"
+    (field_kind vk)
+    (pp_print_option ~none:(fun ppf () ->
+      fprintf ppf "unknown") print_shape_info) si

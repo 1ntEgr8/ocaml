@@ -68,7 +68,7 @@ let parc expr =
         in
         if Vset.mem x bound_funcs || is_matched then expr
         else if Vset.is_empty owned && Vset.mem x borrowed then
-          with_dup_if shapes x expr
+          Dup.sequence shapes x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then expr
         else raise ParcError
@@ -116,11 +116,11 @@ let parc expr =
               body
           in
           (* Insert drops *)
-          with_drops_if shapes should_drop body''
+          Drop.sequence_many shapes should_drop body''
         in
         let func' = lfunction ~kind ~params ~return ~body:body' ~attr ~loc in
         (* Insert dups *)
-        with_dups_if shapes should_dup func'
+        Dup.sequence_many shapes should_dup func'
     | Llet (_let_kind, value_kind, x, e1, e2) ->
         (* Rule SBind and SBind-D *)
         Logging.log ppf "parc_helper: Llet" env expr;
@@ -199,18 +199,7 @@ let parc expr =
     | Lprim ((Pmakeblock _ as p), args, loc) ->
         Logging.log ppf "parc_helper: Lprim(makeblock)" env expr;
         Lprim (p, snd (parc_many_right env args), loc)
-    | Lprim ((Pccall desc as p), args, loc)
-      when Primitive.native_name desc = dup_copy_native_name ->
-        Logging.log ppf "parc_helper: Lprim(dup_copy)" env expr;
-        assert (List.length args == 1);
-        let _, args' = parc_many_right env args in
-        Lprim (p, args', loc)
-    | Lprim ((Pccall desc), _, _)
-      when
-      (Primitive.native_name desc = "caml_obj_get_refcount" ||
-      Primitive.native_name desc = dup_native_name ||
-      Primitive.native_name desc = drop_native_name)
-      ->
+    | Lprim ((Pccall desc), _, _) when is_rc_op (Primitive.native_name desc) ->
         expr
     (* TODO(1ntEgr8): Might need to handle certain primitives differently (like
        array primitives) *)
@@ -225,11 +214,11 @@ let parc expr =
         let should_drop_e2 = Vset.diff owned owned_e2 in
         let e1' =
           parc_regular { env with owned= owned_e1 } e1
-          |> with_drops_if shapes should_drop_e1
+          |> Drop.sequence_many shapes should_drop_e1
         in
         let e2' =
           parc_regular { env with owned= owned_e2 } e2
-          |> with_drops_if shapes should_drop_e2
+          |> Drop.sequence_many shapes should_drop_e2
         in
         let cond' =
           parc_regular
@@ -251,6 +240,7 @@ let parc expr =
             env with
             owned = Vset.remove id owned;
             matched_expression = Some id;
+            shapes = Ident.Map.remove id shapes;
           }
         in
         let lam' = parc_match env' lam in
@@ -284,13 +274,13 @@ let parc expr =
         let should_drop = Vset.diff owned_bv owned' in
         let e' = parc_regular { env with owned = owned' } lam in
         let lam' =
-          with_drops_if shapes should_drop e'
+          Drop.sequence_many shapes should_drop e'
           |> (fun lam ->
                 if Vset.mem id fv then
                   lam
                 else
-                  with_drop_if shapes id lam
-                  |> with_dups_if shapes bv)
+                  Drop.sequence shapes id lam
+                  |> Dup.sequence_many shapes bv)
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->

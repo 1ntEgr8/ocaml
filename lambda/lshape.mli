@@ -13,7 +13,8 @@ type shape = value_kind * (shape_info option)
 
 val infer_from_value_kind : value_kind -> shape
 
-val should_refcount : shape -> bool
+val is_int : shape -> bool
+val is_ptr : shape -> bool
 
 val print_shape_info : formatter -> shape_info -> unit
 

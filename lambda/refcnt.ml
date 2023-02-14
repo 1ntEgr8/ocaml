@@ -1,49 +1,80 @@
 open Lambda
+open Lshape
 
-let prim name lam =
+let dup_copy_native_name  = "caml_rc_dup_copy"
+let dup_checked_native_name = "caml_rc_dup"
+let dup_ptr_native_name = "caml_rc_dup_ptr"
+let drop_checked_native_name = "caml_rc_drop"
+let drop_ptr_native_name = "caml_rc_drop_ptr"
+let decr_native_name = "caml_rc_decr"
+let free_native_name = "caml_rc_free"
+let is_unique_native_name = "caml_rc_is_unique"
+
+module StringSet = Set.Make(String)
+
+let native_names =
+  StringSet.of_list [
+    dup_copy_native_name ;
+    dup_checked_native_name ;
+    dup_ptr_native_name ;
+    drop_checked_native_name ;
+    drop_ptr_native_name ;
+    decr_native_name ;
+    free_native_name ;
+    is_unique_native_name ;
+  ]
+
+let is_rc_op x = StringSet.mem x native_names 
+
+let prim name x =
   Lprim (Pccall (Primitive.simple
           ~name:name
           ~arity:1
           ~alloc:false
-      ), [lam], Debuginfo.Scoped_location.Loc_unknown)
+      ), [Lvar x], Debuginfo.Scoped_location.Loc_unknown)
 
-let with_rc_if f shapes x expr =
-  try
-    let shape = Ident.Map.find x shapes in
-    if Lshape.should_refcount shape then
-      f x expr
-    else
-      expr
-  with Not_found -> f x expr
+module type RcOp = sig
+  val ptr : Ident.t -> lambda
+  val checked : Ident.t -> lambda
+end
 
-(*
-let with_rc f_ptr f_checked shapes x expr =
-  try
-    let shape = Ident.Map.find x shapes in
-    if should_refcount shape then
-      f_ptr x expr
-    else
-      expr
-  with Not_found -> f_checked x expr
-*)
+module type Rc = sig
+  include RcOp
 
+  val sequence : shape Ident.Map.t -> Ident.t -> lambda -> lambda
+  val sequence_many : shape Ident.Map.t -> Ident.Set.t -> lambda -> lambda
+end
 
-let with_rcs f xs expr = Ident.Set.fold (fun x acc -> f x acc) xs expr
-let with_rcs_if f shapes xs expr = Ident.Set.fold (fun x acc -> f shapes x acc) xs expr
+module MakeRc (R : RcOp) = struct
+  include R
 
-let dup_native_name = "caml_rc_dup"
-let dup = prim dup_native_name
-let with_dup x expr = Lsequence (dup (Lvar x), expr)
-let with_dup_if = with_rc_if with_dup
-let with_dups = with_rcs with_dup
-let with_dups_if = with_rcs_if with_dup_if
+  let sequence shapes x expr =
+    try
+      let shape = Ident.Map.find x shapes in
+      if is_int shape then
+        expr
+      else if is_ptr shape then
+        Lsequence (ptr x, expr)
+      else
+        Lsequence (checked x, expr)
+    with Not_found -> Lsequence (checked x, expr)
 
-let dup_copy_native_name = "caml_rc_copy"
-let dup_copy = prim dup_copy_native_name
+  let sequence_many shapes xs expr =
+    Ident.Set.fold (sequence shapes) xs expr
+end
 
-let drop_native_name = "caml_rc_drop"
-let drop = prim drop_native_name
-let with_drop x expr = Lsequence (drop (Lvar x), expr)
-let with_drop_if = with_rc_if with_drop
-let with_drops = with_rcs with_drop
-let with_drops_if = with_rcs_if with_drop_if
+module Dup = MakeRc (struct
+  let ptr = prim dup_ptr_native_name
+  let checked = prim dup_checked_native_name
+end)
+
+module Drop = struct
+  include (MakeRc (struct
+    let ptr = prim drop_ptr_native_name
+    let checked = prim drop_checked_native_name
+  end))
+  
+  let decr = prim decr_native_name
+  let free = prim free_native_name
+  let is_unique = prim is_unique_native_name
+end
