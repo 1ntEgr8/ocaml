@@ -3,14 +3,13 @@ open Format
 
 type shape_info =
   | Empty
-  | Simple of value_kind
   | Compound of shape_info list
 
-type shape = value_kind * (shape_info option)
+type shape = shape_info option
 
-(* val merge : shape -> shape -> shape *)
+val merge : shape -> shape -> shape
 val infer_from_value_kind : value_kind -> shape
-val infer_from_pattern : Typedtree.pattern -> shape
+val infer_from_pattern : Ident.t -> Typedtree.pattern -> shape Ident.Map.t
 
 val is_int : shape -> bool
 val is_ptr : shape -> bool

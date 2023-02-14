@@ -260,16 +260,19 @@ let parc expr =
     | Lmarker (Matched_body pat, lam) when Option.is_some matched_expression ->
         Logging.log ppf "parc_match: Lmarker(Matched_body)" env expr;
         let id = Option.get matched_expression in
-        let id_shape = Lshape.infer_from_pattern pat in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
         let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
+        let shapes' = Lshape.infer_from_pattern id pat in
+        let shapes = Ident.Map.union (fun _ s1 s2 ->
+          Some (Lshape.merge s1 s2)) shapes shapes'
+        in
         let e' = parc_regular {
           env with
           owned = owned' ;
-          shapes = Ident.Map.add id id_shape shapes ;
+          shapes ;
         } lam in
         let lam' =
           Drop.sequence_many shapes should_drop e'
