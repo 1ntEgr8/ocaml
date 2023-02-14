@@ -68,7 +68,7 @@
    annot outcometree
 
    ;; lambda/
-   debuginfo lambda matching printlambda refcnt parc runtimedef tmc simplif switch
+   debuginfo lambda matching printlambda lshape refcnt parc runtimedef tmc simplif switch
    translattribute translclass translcore translmod translobj translprim
 
    ;; bytecomp/

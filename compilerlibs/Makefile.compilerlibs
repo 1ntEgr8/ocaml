@@ -127,6 +127,7 @@ LAMBDA = \
   lambda/debuginfo.cmo \
   lambda/lambda.cmo \
   lambda/printlambda.cmo \
+  lambda/lshape.cmo \
   lambda/refcnt.cmo \
   lambda/parc.cmo \
   lambda/switch.cmo \

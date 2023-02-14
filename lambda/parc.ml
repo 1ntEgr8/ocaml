@@ -1,3 +1,4 @@
+open Format
 open Lambda
 open Refcnt
 
@@ -10,23 +11,8 @@ type env = {
   owned : Vset.t;
   matched_expression : Ident.t option;
   bound_funcs : Vset.t;
+  shapes: Lshape.shape Ident.Map.t;
 }
-
-module Logging = struct
-  let log ppf tag { borrowed; owned; bound_funcs } expr =
-    if !Clflags.dump_parc then
-      Format.fprintf ppf "[%s]@.borrowed=%a@.owned=%a@.bound_funcs=%a@.%a@.@."
-        tag Vset.print borrowed Vset.print owned Vset.print bound_funcs
-        Printlambda.lambda expr
-
-  let dump_if ppf expr =
-    if !Clflags.dump_parc then (
-      Format.fprintf ppf "@.automated_refcounting:@.";
-      Printlambda.lambda ppf expr ;
-      Format.pp_print_newline ppf ();
-    );
-    expr
-end
 
 let empty_env =
   {
@@ -34,22 +20,43 @@ let empty_env =
     owned = Vset.empty;
     matched_expression = None;
     bound_funcs = Vset.empty;
+    shapes = Ident.Map.empty;
   }
+
+module Logging = struct
+  let log ppf tag { borrowed; owned; matched_expression; bound_funcs; shapes } expr =
+    if !Clflags.dump_parc then
+      fprintf ppf "[%s]@." tag ;
+      fprintf ppf "borrowed=%a@." Vset.print borrowed ;
+      fprintf ppf "owned=%a@." Vset.print owned ;
+      fprintf ppf "matched_expression=%a@."
+        (pp_print_option Ident.print) matched_expression ;
+      fprintf ppf "bound_funcs=%a@." Vset.print bound_funcs ;
+      fprintf ppf "shapes={@[@;" ;
+      Ident.Map.iter (fun id shape ->
+        fprintf ppf "@[<2>%a =>@ %a@];@ @;"
+          Ident.print id
+          Lshape.print shape
+      ) shapes ;
+      fprintf ppf "}@]@." ;
+      fprintf ppf "%a@.@." Printlambda.lambda expr
+
+  let dump_if ppf expr =
+    if !Clflags.dump_parc then (
+      fprintf ppf "@.automated_refcounting:@.";
+      Printlambda.lambda ppf expr ;
+      pp_print_newline ppf ();
+    );
+    expr
+end
 
 let ppf = Format.std_formatter
 
 let free_variables { bound_funcs } expr =
   Vset.diff (Lambda.free_variables expr) bound_funcs
 
-(* Need to do the following today:
-
-   - keep track of a shape map
-   - normalize match statements
-   - dup/drop for primitives
-*)
-
 let parc expr =
-  let rec parc_regular ({ borrowed; owned; bound_funcs; matched_expression } as env) expr =
+  let rec parc_regular ({ borrowed; owned; bound_funcs; matched_expression; shapes } as env) expr =
     match expr with
     | Lvar x ->
         (* Rule SVar and SVar-Dup *)
@@ -61,7 +68,7 @@ let parc expr =
         in
         if Vset.mem x bound_funcs || is_matched then expr
         else if Vset.is_empty owned && Vset.mem x borrowed then
-          with_dup x expr
+          with_dup_if shapes x expr
         else if Vset.equal owned (Vset.singleton x) && not (Vset.mem x borrowed)
         then expr
         else raise ParcError
@@ -87,6 +94,11 @@ let parc expr =
         (* Rule SLam and SLam-D *)
         let xs = Vset.of_list (List.map fst params) in
         let ys = free_variables env expr in
+        let shapes' =
+          List.fold_left (fun shapes (id, vk) ->
+            Ident.Map.add id (Lshape.infer_from_value_kind vk) shapes   
+          ) shapes params
+        in
         let body_fvs = free_variables env body in
         let should_own, should_drop =
           Vset.partition (fun x -> Vset.mem x body_fvs) xs
@@ -99,15 +111,16 @@ let parc expr =
                 env with
                 borrowed = Vset.empty;
                 owned = Vset.union ys should_own;
+                shapes = shapes';
               }
               body
           in
           (* Insert drops *)
-          with_drops should_drop body''
+          with_drops_if shapes should_drop body''
         in
         let func' = lfunction ~kind ~params ~return ~body:body' ~attr ~loc in
         (* Insert dups *)
-        with_dups should_dup func'
+        with_dups_if shapes should_dup func'
     | Llet (_let_kind, value_kind, x, e1, e2) ->
         (* Rule SBind and SBind-D *)
         Logging.log ppf "parc_helper: Llet" env expr;
@@ -127,7 +140,16 @@ let parc expr =
               }
               e1
           in
-          let e2' = parc_regular { env with borrowed; owned = owned' } e2 in
+          let e2' =
+            parc_regular
+              { 
+                env with
+                borrowed;
+                owned = owned';
+                shapes = Ident.Map.add x (Lshape.infer_from_value_kind value_kind) shapes
+              }
+              e2
+          in
 
           (* TODO(1ntEgr8):
              Optimization - Set let_kind to Alias if transformed
@@ -203,11 +225,11 @@ let parc expr =
         let should_drop_e2 = Vset.diff owned owned_e2 in
         let e1' =
           parc_regular { env with owned= owned_e1 } e1
-          |> with_drops should_drop_e1
+          |> with_drops_if shapes should_drop_e1
         in
         let e2' =
           parc_regular { env with owned= owned_e2 } e2
-          |> with_drops should_drop_e2
+          |> with_drops_if shapes should_drop_e2
         in
         let cond' =
           parc_regular
@@ -239,7 +261,7 @@ let parc expr =
     | _ ->
         Logging.log ppf "parc_helper: unhandled" env expr;
         expr
-  and parc_match ({ owned; matched_expression } as env) expr =
+    and parc_match ({ owned; matched_expression; shapes } as env) expr =
     (* TODO(1ntEgr8): Need to update this to handle guards *)
     match expr with
     | Lmarker (Match_begin _, _) ->
@@ -249,19 +271,26 @@ let parc expr =
         Logging.log ppf "parc_match: Lmarker(Matched_body)" env expr;
         let id = Option.get matched_expression in
         let bv = Vset.of_list (Typedtree.pat_bound_idents pat) in
+
+        (* Given a pattern, we wish to obtain the following:
+
+          - shape of the constructor
+          - shape of each field
+        *)
+
         let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
         let e' = parc_regular { env with owned = owned' } lam in
         let lam' =
-          with_drops should_drop e'
+          with_drops_if shapes should_drop e'
           |> (fun lam ->
                 if Vset.mem id fv then
                   lam
                 else
-                  with_drop id lam
-                  |> with_dups bv)
+                  with_drop_if shapes id lam
+                  |> with_dups_if shapes bv)
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
