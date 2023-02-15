@@ -11,6 +11,10 @@ and shape = value_kind * (shape_info option)
 (* TODO redefine *)
 let merge _s1 s2 = s2
 
+let merge_maps =
+  Ident.Map.union (fun _ s1 s2 ->
+    Some (merge s1 s2))
+
 let shape_unknown vk = (vk, None)
 let int_shape = (Pintval, Some Empty)
 let gen_shape s = (Pgenval, Some s)
@@ -24,31 +28,33 @@ let infer_from_value_kind vk =
 let rec infer_from_pattern pat =
   let open Types in
   match pat.pat_desc with
-  | Tpat_any -> gen_shape_unknown
-  | Tpat_var _ ->
+  | Tpat_any -> (gen_shape_unknown, Ident.Map.empty)
+  | Tpat_var (id, _) ->
       let vk = Typeopt.value_kind pat.pat_env pat.pat_type in
-      infer_from_value_kind vk
-  | Tpat_constant _ -> int_shape
+      let shape = infer_from_value_kind vk in
+      (shape, Ident.Map.singleton id shape)
+  | Tpat_constant _ -> (int_shape, Ident.Map.empty)
   | Tpat_construct (_, cstr, patl, _) ->
       (match cstr.cstr_tag with
-      | Cstr_constant _ | Cstr_unboxed -> int_shape
+      | Cstr_constant _ | Cstr_unboxed -> (int_shape, Ident.Map.empty)
       | Cstr_block _ ->
-          gen_shape (Compound (List.map infer_from_pattern patl))
-      | _ -> gen_shape_unknown)
+          let inferred = List.map infer_from_pattern patl in
+          let ss = List.map fst inferred in
+          let shape_map =
+            List.map snd inferred
+            |> List.fold_left merge_maps Ident.Map.empty
+          in
+          (gen_shape (Compound ss), shape_map)
+      | _ -> (gen_shape_unknown, Ident.Map.empty))
+  | Tpat_alias (subpat, id, _) ->
+      let subpat_shape, shapes' = infer_from_pattern subpat in
+      (subpat_shape, Ident.Map.add id subpat_shape shapes')
   | _ ->
       (* Not handled yet. Return sound approximation *)
-      gen_shape_unknown
+      (gen_shape_unknown, Ident.Map.empty)
 
 let infer_from_matched id pat =
-  let bvs = pat_bound_idents_full pat in
-  let bv_shapes =
-    List.fold_left (fun shapes (id, _, ty) ->
-      let vk = Typeopt.value_kind pat.pat_env ty in
-      let shape' = infer_from_value_kind vk in
-      Ident.Map.add id shape' shapes
-    ) Ident.Map.empty bvs
-  in
-  let id_shape = infer_from_pattern pat in
+  let id_shape, bv_shapes = infer_from_pattern pat in 
   Ident.Map.add id id_shape bv_shapes
 
 let is_gen_shape_unknown s = (s = gen_shape_unknown)
@@ -81,7 +87,7 @@ let rec print_shape_info ppf = function
       pp_print_list
         ~pp_sep:(fun ppf () -> pp_print_text ppf ",")
         print_shape
-        ppf 
+        ppf
         ss
       ;
       fprintf ppf "]@]"

@@ -266,9 +266,7 @@ let parc expr =
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
         let shapes' = Lshape.infer_from_matched id pat in
-        let shapes = Ident.Map.union (fun _ s1 s2 ->
-          Some (Lshape.merge s1 s2)) shapes shapes'
-        in
+        let shapes = Lshape.merge_maps shapes shapes' in
         let e' = parc_regular {
           env with
           owned = owned' ;

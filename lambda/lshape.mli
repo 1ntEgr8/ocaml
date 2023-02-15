@@ -8,8 +8,9 @@ type shape_info =
 and shape = value_kind * (shape_info option)
 
 val merge : shape -> shape -> shape
+val merge_maps : shape Ident.Map.t -> shape Ident.Map.t -> shape Ident.Map.t
 val infer_from_value_kind : value_kind -> shape
-val infer_from_pattern : Typedtree.pattern -> shape
+val infer_from_pattern : Typedtree.pattern -> shape * (shape Ident.Map.t)
 val infer_from_matched: Ident.t -> Typedtree.pattern -> shape Ident.Map.t
 
 val is_int : shape -> bool
