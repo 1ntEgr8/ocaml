@@ -34,9 +34,9 @@ module Logging = struct
       fprintf ppf "bound_funcs=%a@." Vset.print bound_funcs ;
       fprintf ppf "shapes={@[@;" ;
       Ident.Map.iter (fun id shape ->
-        fprintf ppf "@[<2>%a =>@ %a@];@ @;"
+        fprintf ppf "@[<2>%a =>@ %a@]@ ;@ @;"
           Ident.print id
-          Lshape.print shape
+          Lshape.print_shape shape
       ) shapes ;
       fprintf ppf "}@]@." ;
       fprintf ppf "%a@.@." Printlambda.lambda expr
@@ -265,7 +265,7 @@ let parc expr =
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let should_drop = Vset.diff owned_bv owned' in
-        let shapes' = Lshape.infer_from_pattern id pat in
+        let shapes' = Lshape.infer_from_matched id pat in
         let shapes = Ident.Map.union (fun _ s1 s2 ->
           Some (Lshape.merge s1 s2)) shapes shapes'
         in
