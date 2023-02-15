@@ -36,6 +36,7 @@ let prim name x =
 module type RcOp = sig
   val ptr : Ident.t -> lambda
   val checked : Ident.t -> lambda
+  val bind_copy : Ident.t -> lambda -> lambda
 end
 
 module type Rc = sig
@@ -52,10 +53,7 @@ module MakeRc (R : RcOp) = struct
     try
       let shape = Ident.Map.find x shapes in
       if is_int shape then
-        let x' = Ident.rename x in
-        Llet (Strict, Pintval, x',
-          prim dup_copy_native_name x,
-          rename (Ident.Map.singleton x x') expr)
+        bind_copy x expr
       else if is_ptr shape then
         Lsequence (ptr x, expr)
       else
@@ -69,12 +67,18 @@ end
 module Dup = MakeRc (struct
   let ptr = prim dup_ptr_native_name
   let checked = prim dup_checked_native_name
+  let bind_copy x expr =
+    let x' = Ident.rename x in
+    Llet (Strict, Pintval, x',
+          prim dup_copy_native_name x,
+          rename (Ident.Map.singleton x x') expr)
 end)
 
 module Drop = struct
   include (MakeRc (struct
     let ptr = prim drop_ptr_native_name
     let checked = prim drop_checked_native_name
+    let bind_copy _x expr = expr
   end))
   
   let decr = prim decr_native_name

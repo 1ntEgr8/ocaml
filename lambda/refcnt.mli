@@ -8,6 +8,7 @@ val is_rc_op : string -> bool
 module type Rc = sig
   val ptr : Ident.t -> lambda
   val checked : Ident.t -> lambda
+  val bind_copy: Ident.t -> lambda -> lambda
   val sequence : shape Ident.Map.t -> Ident.t -> lambda -> lambda
   val sequence_many : shape Ident.Map.t -> Ident.Set.t -> lambda -> lambda
 end
