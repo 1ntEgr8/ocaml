@@ -12,8 +12,7 @@ and shape = value_kind * (shape_info option)
 let merge _s1 s2 = s2
 
 let merge_maps =
-  Ident.Map.union (fun _ s1 s2 ->
-    Some (merge s1 s2))
+  Ident.Map.union (fun _ s1 s2 -> Some (merge s1 s2))
 
 let shape_unknown vk = (vk, None)
 let int_shape = (Pintval, Some Empty)
@@ -50,7 +49,7 @@ let rec infer_from_pattern pat =
       let subpat_shape, shapes' = infer_from_pattern subpat in
       (subpat_shape, Ident.Map.add id subpat_shape shapes')
   | _ ->
-      (* Not handled yet. Return sound approximation *)
+      (* Not handled yet. Return a sound approximation *)
       (gen_shape_unknown, Ident.Map.empty)
 
 let infer_from_matched id pat =

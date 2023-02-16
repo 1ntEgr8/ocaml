@@ -213,12 +213,12 @@ let parc expr =
         let owned_e2 = Vset.inter owned (free_variables env e2) in
         let should_drop_e2 = Vset.diff owned owned_e2 in
         let e1' =
+          Drop.sequence_many shapes should_drop_e1 @@
           parc_regular { env with owned= owned_e1 } e1
-          |> Drop.sequence_many shapes should_drop_e1
         in
         let e2' =
+          Drop.sequence_many shapes should_drop_e2 @@
           parc_regular { env with owned= owned_e2 } e2
-          |> Drop.sequence_many shapes should_drop_e2
         in
         let cond' =
           parc_regular
@@ -264,22 +264,20 @@ let parc expr =
         let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
-        let should_drop = Vset.diff owned_bv owned' in
+        let should_dup = bv in
+        let should_drop =
+          let base = Vset.diff owned_bv owned' in
+          if not (Vset.mem id fv) then
+            Vset.add id base
+          else
+            base
+        in
         let shapes' = Lshape.infer_from_matched id pat in
         let shapes = Lshape.merge_maps shapes shapes' in
-        let e' = parc_regular {
-          env with
-          owned = owned' ;
-          shapes ;
-        } lam in
         let lam' =
-          Drop.sequence_many shapes should_drop e'
-          |> (fun lam ->
-                if Vset.mem id fv then
-                  lam
-                else
-                  Drop.sequence shapes id lam
-                  |> Dup.sequence_many shapes bv)
+          Dup.sequence_many shapes should_dup @@
+          Drop.sequence_many shapes should_drop @@
+          parc_regular { env with owned= owned'; shapes } lam
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->
