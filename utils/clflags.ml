@@ -184,7 +184,9 @@ let afl_inst_ratio = ref 100           (* -afl-inst-ratio *)
 let function_sections = ref false      (* -function-sections *)
 
 let automated_refcounting = ref false      (* -automated-refcounting *)
+let specialize_drops = ref false           (* -specialize-drops *)
 let dump_parc = ref false                  (* -dparc *)
+let dump_parc_trace = ref false            (* -dparc_trace *)
 
 let simplify_rounds = ref None        (* -rounds *)
 let default_simplify_rounds = ref 1        (* -rounds *)
