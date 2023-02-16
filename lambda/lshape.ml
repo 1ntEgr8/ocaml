@@ -25,6 +25,8 @@ let merge _s1 s2 = s2
 let merge_maps =
   Ident.Map.union (fun _ s1 s2 -> Some (merge s1 s2))
 
+let descendant _shapes _parent _x = false
+
 let shape_unknown vk = (vk, None)
 let int_shape = (Pintval, Some Empty)
 let gen_shape s = (Pgenval, Some s)

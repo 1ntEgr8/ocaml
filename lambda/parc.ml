@@ -275,12 +275,13 @@ let parc expr =
             base
         in
         let lam' =
-          Opt.init ~dups:should_dup ~drops:should_drop
-          |> Opt.fuse
+          Opt.fuse (should_dup, should_drop)
           |> (fun t ->
                 if !Clflags.specialize_drops then
                   Opt.specialize_drops shapes' t
-                else t)
+                else
+                  Opt.combine t
+             )
           |> Opt.finalize
              shapes'
              (parc_regular { env with owned= owned'; shapes= shapes' } lam)

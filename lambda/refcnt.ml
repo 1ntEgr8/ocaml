@@ -90,17 +90,49 @@ module Opt = struct
   type dups = Ident.Set.t
   type drops = Ident.Set.t
 
-  type t = dups * drops
+  type op =
+    | RcDup of Ident.t
+    | RcDrop of Ident.t
 
-  let init ~dups ~drops = (dups, drops)
+  let dup x = RcDup x
+  let drop x = RcDrop x
 
   let fuse (dups, drops) =
     (Ident.Set.diff dups drops, Ident.Set.diff drops dups)
 
-  let specialize_drops _shapes input = input
+  let combine (dups, drops) =
+    (List.map dup (Ident.Set.elements dups)) @
+    (List.map drop (Ident.Set.elements drops))
 
-  let finalize shapes lam (dups, drops) =
-    Dup.sequence_many ~bind_int:true shapes dups @@
-    Drop.sequence_many shapes drops @@
-    lam
+  let specialize_drops shapes t =
+    (* optimize : (dups * drops) -> op list *)
+    let rec optimize t =
+      let (fdups, fdrops) = fuse t in
+      optimize_disjoint (fdups, Ident.Set.elements fdrops)
+
+    (* optimize_disjoint : (dups * dropsl) -> op list *)
+    and optimize_disjoint (dups, drops) =
+      match drops with
+        | [] -> List.map dup (Ident.Set.elements dups)
+        | y :: drops -> (
+          let (ydups, dups') = Ident.Set.partition (descendant shapes y) dups in
+          let (ydrops, drops') = List.partition (descendant shapes y) drops in
+          let rest = optimize_disjoint (dups', drops') in
+          let prefix = List.map drop ydrops in
+          let spec = specialize_drop ydups y in
+          rest @ prefix @ spec
+        )
+
+    (* specialize_drop : dups -> ident -> op list *)
+    and specialize_drop _ydups _y = []
+
+    in 
+      optimize t
+
+  let finalize shapes lam ops =
+    List.fold_right (fun op lam ->
+      match op with
+      | RcDup x -> Dup.sequence ~bind_int:true shapes x lam
+      | RcDrop x -> Drop.sequence ~bind_int: true shapes x lam
+    ) ops lam
 end
