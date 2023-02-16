@@ -6,6 +6,7 @@ type shape_info =
   | Compound of shape list
 
 and shape = value_kind * (shape_info option)
+and shape_map = shape Ident.Map.t
 
 val merge : shape -> shape -> shape
 val merge_maps : shape Ident.Map.t -> shape Ident.Map.t -> shape Ident.Map.t

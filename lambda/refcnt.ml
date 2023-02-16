@@ -42,26 +42,26 @@ end
 module type Rc = sig
   include RcOp
 
-  val sequence : shape Ident.Map.t -> Ident.t -> lambda -> lambda
-  val sequence_many : shape Ident.Map.t -> Ident.Set.t -> lambda -> lambda
+  val sequence : ?bind_int:bool -> shape_map -> Ident.t -> lambda -> lambda
+  val sequence_many : ?bind_int:bool -> shape_map -> Ident.Set.t -> lambda -> lambda
 end
 
 module MakeRc (R : RcOp) = struct
   include R
 
-  let sequence shapes x expr =
+  let sequence ?(bind_int = false) shapes x expr =
     try
       let shape = Ident.Map.find x shapes in
       if is_int shape then
-        bind_copy x expr
+        if bind_int then bind_copy x expr else expr
       else if is_ptr shape then
         Lsequence (ptr x, expr)
       else
         Lsequence (checked x, expr)
     with Not_found -> Lsequence (checked x, expr)
 
-  let sequence_many shapes xs expr =
-    Ident.Set.fold (sequence shapes) xs expr
+  let sequence_many ?(bind_int = false) shapes xs expr =
+    Ident.Set.fold (sequence ~bind_int shapes) xs expr
 end
 
 module Dup = MakeRc (struct
@@ -84,4 +84,23 @@ module Drop = struct
   let decr = prim decr_native_name
   let free = prim free_native_name
   let is_unique = prim is_unique_native_name
+end
+
+module Opt = struct
+  type dups = Ident.Set.t
+  type drops = Ident.Set.t
+
+  type t = dups * drops
+
+  let init ~dups ~drops = (dups, drops)
+
+  let fuse (dups, drops) =
+    (Ident.Set.diff dups drops, Ident.Set.diff drops dups)
+
+  let specialize_drops _shapes input = input
+
+  let finalize shapes lam (dups, drops) =
+    Dup.sequence_many ~bind_int:true shapes dups @@
+    Drop.sequence_many shapes drops @@
+    lam
 end

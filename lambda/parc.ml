@@ -25,7 +25,7 @@ let empty_env =
 
 module Logging = struct
   let log ppf tag { borrowed; owned; matched_expression; bound_funcs; shapes } expr =
-    if !Clflags.dump_parc then
+    if !Clflags.dump_parc_trace then (
       fprintf ppf "[%s]@." tag ;
       fprintf ppf "borrowed=%a@." Vset.print borrowed ;
       fprintf ppf "owned=%a@." Vset.print owned ;
@@ -40,6 +40,7 @@ module Logging = struct
       ) shapes ;
       fprintf ppf "}@]@." ;
       fprintf ppf "%a@.@." Printlambda.lambda expr
+    )
 
   let dump_if ppf expr =
     if !Clflags.dump_parc then (
@@ -264,6 +265,7 @@ let parc expr =
         let fv = free_variables env lam in
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
+        let shapes' = Lshape.merge_maps shapes (Lshape.infer_from_matched id pat) in
         let should_dup = bv in
         let should_drop =
           let base = Vset.diff owned_bv owned' in
@@ -272,12 +274,16 @@ let parc expr =
           else
             base
         in
-        let shapes' = Lshape.infer_from_matched id pat in
-        let shapes = Lshape.merge_maps shapes shapes' in
         let lam' =
-          Dup.sequence_many shapes should_dup @@
-          Drop.sequence_many shapes should_drop @@
-          parc_regular { env with owned= owned'; shapes } lam
+          Opt.init ~dups:should_dup ~drops:should_drop
+          |> Opt.fuse
+          |> (fun t ->
+                if !Clflags.specialize_drops then
+                  Opt.specialize_drops shapes' t
+                else t)
+          |> Opt.finalize
+             shapes'
+             (parc_regular { env with owned= owned'; shapes= shapes' } lam)
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->

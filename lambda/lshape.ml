@@ -2,11 +2,28 @@ open Format
 open Lambda
 open Typedtree
 
+(* TODO
+  
+  - add flag for tracing
+  - add flag for drop_specialize
+  - run (by hand) optimizeDupsDrops for
+    - one map branch
+    - one rbtree branch
+
+  - define [merge]
+  - alias all sub-patterns
+  - add names to shape
+    - define children_of
+    - define descendent_of
+ *)
+
+
 type shape_info =
   | Empty
   | Compound of shape list
 
 and shape = value_kind * (shape_info option)
+and shape_map = shape Ident.Map.t
 
 (* TODO redefine *)
 let merge _s1 s2 = s2
