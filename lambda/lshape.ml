@@ -4,12 +4,6 @@ open Typedtree
 
 (* TODO
   
-  - add flag for tracing
-  - add flag for drop_specialize
-  - run (by hand) optimizeDupsDrops for
-    - one map branch
-    - one rbtree branch
-
   - define [merge]
   - alias all sub-patterns
   - add names to shape
