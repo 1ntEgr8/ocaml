@@ -2,21 +2,16 @@ open Format
 open Lambda
 open Typedtree
 
-(* TODO
-  
-  - define [merge]
-  - alias all sub-patterns
-  - add names to shape
-    - define children_of
-    - define descendent_of
- *)
-
-
 type shape_info =
   | Empty
   | Compound of shape list
 
-and shape = value_kind * (shape_info option)
+and shape = {
+  kind: value_kind ;
+  name: Ident.t option ;
+  info: shape_info option ;
+}
+
 and shape_map = shape Ident.Map.t
 
 (* TODO redefine *)
@@ -28,9 +23,11 @@ let merge_maps =
 (* TODO redefine *)
 let descendant _shapes _parent _x = false
 
-let shape_unknown vk = (vk, None)
-let int_shape = (Pintval, Some Empty)
-let gen_shape s = (Pgenval, Some s)
+let shape_unknown vk = { kind= vk; name= None; info= None }
+let int_shape = { kind=Pintval; name= None; info= Some Empty }
+let _named_int_shape id = { kind= Pintval; name= id; info= Some Empty }
+let gen_shape s = { kind= Pgenval; name= None; info= Some s }
+let _named_gen_shape s id = { kind= Pgenval; name= id; info= Some s }
 let gen_shape_unknown = shape_unknown Pgenval
 
 let infer_from_value_kind vk =
@@ -61,7 +58,8 @@ let rec infer_from_pattern pat =
       | _ -> (gen_shape_unknown, Ident.Map.empty))
   | Tpat_alias (subpat, id, _) ->
       let subpat_shape, shapes' = infer_from_pattern subpat in
-      (subpat_shape, Ident.Map.add id subpat_shape shapes')
+      let shape = { subpat_shape with name= Some id } in
+      (shape, Ident.Map.add id shape shapes')
   | _ ->
       (* Not handled yet. Return a sound approximation *)
       (gen_shape_unknown, Ident.Map.empty)
@@ -72,13 +70,13 @@ let infer_from_matched id pat =
 
 let is_gen_shape_unknown s = (s = gen_shape_unknown)
 
-let is_int s =
-  match s with
+let is_int { kind; info } =
+  match (kind, info) with
   | (Pintval, Some Empty) -> true
   | _ -> false
 
-let is_ptr s =
-  match s with
+let is_ptr { kind; info } =
+  match (kind, info) with
   | (Pgenval, Some s) -> s <> Empty
   | _ -> false
 
@@ -105,11 +103,13 @@ let rec print_shape_info ppf = function
       ;
       fprintf ppf "]@]"
 
-and print_shape ppf ((vk, si) as s) =
+and print_shape ppf ({ kind; name; info } as s) =
   if is_int s || is_gen_shape_unknown s then
-    fprintf ppf "%s" (field_kind vk)
+    fprintf ppf "%s" (field_kind kind)
   else
-    fprintf ppf "@[<2>%s::%a@]"
-      (field_kind vk) 
+    fprintf ppf "@[<2>%a %s::%a@]"
       (pp_print_option ~none:(fun ppf () ->
-        fprintf ppf "?") print_shape_info) si
+        fprintf ppf "") Ident.print) name
+      (field_kind kind)
+      (pp_print_option ~none:(fun ppf () ->
+        fprintf ppf "?") print_shape_info) info
