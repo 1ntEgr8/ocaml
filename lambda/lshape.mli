@@ -1,7 +1,11 @@
 open Lambda
 open Format
 
-exception MissingChildren
+type shape_error =
+  | MissingChildren
+  | MergeMismatch
+
+exception ShapeError of shape_error
 
 type shape_info =
   | Empty

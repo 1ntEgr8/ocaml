@@ -2,7 +2,11 @@ open Format
 open Lambda
 open Typedtree
 
-exception MissingChildren
+type shape_error =
+  | MissingChildren
+  | MergeMismatch
+
+exception ShapeError of shape_error
 
 type shape_info =
   | Empty
@@ -16,14 +20,43 @@ and shape = {
 
 and shape_map = shape Ident.Map.t
 
-(* TODO redefine *)
-let merge _s1 s2 = s2
+let ( let* ) = Option.bind
+
+let merge_opt f o1 o2 =
+  match (o1, o2) with
+  | Some x, None | None, Some x -> Some x
+  | None, None -> None
+  | Some x1, Some x2 -> Some (f x1 x2)
+
+let rec merge
+  { kind= k1; name= n1; info= i1 }
+  { kind= k2; name= n2; info= i2 }
+  =
+    { kind= merge_kind k1 k2
+    ; name= merge_name n1 n2
+    ; info= merge_info i1 i2 }
+
+and merge_kind k1 k2 =
+  if k1 = k2 then k1 else raise (ShapeError MergeMismatch)
+
+and merge_info i1 i2 =
+  merge_opt (fun i1 i2 ->
+    match (i1, i2) with
+    | Empty, Empty -> Empty
+    | Compound c1, Compound c2 ->
+        Compound (List.combine c1 c2
+                  |> List.map (fun (s1, s2) -> merge s1 s2))
+    | _ -> raise (ShapeError MergeMismatch)) i1 i2
+
+and merge_name x1 x2 =
+  merge_opt (fun x1 x2 ->
+    if Ident.compare x1 x2 = 0 then x1
+    else raise (ShapeError MergeMismatch)) x1 x2
 
 let merge_maps =
   Ident.Map.union (fun _ s1 s2 -> Some (merge s1 s2))
 
 let children_of shapes x =
-  let ( let* ) = Option.bind in
   match Ident.Map.find_opt x shapes with
   | Some { info } ->
       (match info with
@@ -37,7 +70,7 @@ let children_of shapes x =
           in
           (match maybe_children with
           | Some children -> Ident.Set.of_list children
-          | None -> raise MissingChildren)
+          | None -> raise (ShapeError MissingChildren))
       | _ -> Ident.Set.empty)
   | None -> Ident.Set.empty
 
