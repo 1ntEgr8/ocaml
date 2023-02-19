@@ -111,7 +111,32 @@ module Opt = struct
     in
     (dups', drops')
 
-  let specialize_drops _shapes t = t
+  let specialize_drops shapes t =
+    let rec optimize t =
+      let (fdups, fdrops) = fuse t in
+      optimize_disjoint fdups fdrops
+    
+    and optimize_disjoint dups drops =
+      match drops with
+      | [] -> (dups, [])
+      | (_, y) :: drops ->
+          let (y_dups, dups') =
+            Ident.Set.partition (descendant shapes y) dups
+          in
+          let (y_drops, drops') =
+            List.partition ((fun (_, x) -> descendant shapes y x)) drops
+          in
+          let (rest_dups, rest_drops) = optimize_disjoint dups' drops' in
+          let prefix = y_drops in
+          let spec = specialize_drop y_dups y in
+          (rest_dups, prefix @ [spec] @ rest_drops)
+
+    and specialize_drop _dups y =
+      (DropInline { uniq= Ident.Set.empty; shared= Ident.Set.empty }, y)
+
+    in
+      optimize t
+
 
   let finalize ?(for_matched = false) shapes lam (dups, drops) =
     let sequence_drop (op, x) lam =
