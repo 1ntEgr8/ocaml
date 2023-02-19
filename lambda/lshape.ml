@@ -2,6 +2,8 @@ open Format
 open Lambda
 open Typedtree
 
+exception MissingChildren
+
 type shape_info =
   | Empty
   | Compound of shape list
@@ -20,8 +22,28 @@ let merge _s1 s2 = s2
 let merge_maps =
   Ident.Map.union (fun _ s1 s2 -> Some (merge s1 s2))
 
-(* TODO redefine *)
-let descendant _shapes _parent _x = false
+let children_of shapes x =
+  let ( let* ) = Option.bind in
+  match Ident.Map.find_opt x shapes with
+  | Some { info } ->
+      (match info with
+      | Some (Compound shapes') ->
+          let maybe_children =
+            List.map (fun s -> s.name) shapes'
+            |> List.fold_left (fun acc child ->
+                let* acc = acc in
+                let* child = child in
+                Some (child :: acc)) (Some [])
+          in
+          (match maybe_children with
+          | Some children -> Ident.Set.of_list children
+          | None -> raise MissingChildren)
+      | _ -> Ident.Set.empty)
+  | None -> Ident.Set.empty
+
+let rec descendant shapes parent x =
+  let ys = children_of shapes parent in
+  Ident.Set.mem x ys || Ident.Set.exists (descendant shapes x) ys
 
 let shape_unknown vk = { kind= vk; name= None; info= None }
 let int_shape = { kind=Pintval; name= None; info= Some Empty }

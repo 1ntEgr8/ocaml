@@ -1,6 +1,8 @@
 open Lambda
 open Format
 
+exception MissingChildren
+
 type shape_info =
   | Empty
   | Compound of shape list
@@ -15,7 +17,9 @@ and shape_map = shape Ident.Map.t
 
 val merge : shape -> shape -> shape
 val merge_maps : shape Ident.Map.t -> shape Ident.Map.t -> shape Ident.Map.t
+val children_of : shape_map -> Ident.t -> Ident.Set.t
 val descendant : shape_map -> Ident.t -> Ident.t -> bool
+
 val infer_from_value_kind : value_kind -> shape
 val infer_from_pattern : Typedtree.pattern -> shape * (shape Ident.Map.t)
 val infer_from_matched: Ident.t -> Typedtree.pattern -> shape Ident.Map.t
