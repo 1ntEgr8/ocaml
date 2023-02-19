@@ -56,6 +56,9 @@ let ppf = Format.std_formatter
 let free_variables { bound_funcs } expr =
   Vset.diff (Lambda.free_variables expr) bound_funcs
 
+let map_if flag f x =
+  if flag then f x else x
+
 let parc expr =
   let rec parc_regular ({ borrowed; owned; bound_funcs; matched_expression; shapes } as env) expr =
     match expr with
@@ -269,22 +272,21 @@ let parc expr =
         let should_dup = bv in
         let should_drop =
           let base = Vset.diff owned_bv owned' in
-          if not (Vset.mem id fv) then
-            Vset.add id base
-          else
-            base
+          let base' =
+            if not (Vset.mem id fv) then
+              Vset.add id base
+            else
+              base
+          in
+            Vset.elements base'
         in
         let lam' =
-          Opt.fuse (should_dup, should_drop)
-          |> (fun t ->
-                if !Clflags.specialize_drops then
-                  Opt.specialize_drops shapes' t
-                else
-                  Opt.combine t
-             )
+          Opt.init ~dups:should_dup ~drops:should_drop
+          |> map_if !Clflags.specialize_drops (Opt.specialize_drops shapes')
           |> Opt.finalize
-             shapes'
-             (parc_regular { env with owned= owned'; shapes= shapes' } lam)
+              ~for_matched:true
+              shapes'
+              (parc_regular { env with owned= owned'; shapes= shapes' } lam)
         in
         Lmarker (Matched_body pat, lam')
     | Lmarker (Matched_body _, _) when Option.is_none matched_expression ->

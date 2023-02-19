@@ -24,13 +24,13 @@ module Drop : sig
 end
 
 module Opt : sig
-  type dups = Ident.Set.t
-  type drops = Ident.Set.t
-  type op
+  type t
 
-  val fuse : dups * drops -> dups * drops
-  val combine : dups * drops -> op list
-  val specialize_drops: shape_map -> dups * drops -> op list
+  val init : dups:Ident.Set.t -> drops:Ident.t list -> t
 
-  val finalize : shape_map -> lambda -> op list -> lambda
+  val fuse : t -> t
+
+  val specialize_drops: shape_map -> t -> t
+
+  val finalize : ?for_matched:bool -> shape_map -> lambda -> t -> lambda
 end

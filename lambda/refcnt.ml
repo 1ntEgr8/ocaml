@@ -88,51 +88,37 @@ end
 
 module Opt = struct
   type dups = Ident.Set.t
-  type drops = Ident.Set.t
 
-  type op =
-    | RcDup of Ident.t
-    | RcDrop of Ident.t
+  type drop_op =
+    | DropRegular
+    | DropInline of { uniq: Ident.Set.t ; shared: Ident.Set.t }
+  type drops = (drop_op * Ident.t) list
 
-  let dup x = RcDup x
-  let drop x = RcDrop x
+  (* Maintains the invariant where all dups are done before any drops *)
+  type t = dups * drops
 
+  let _inline_drop uniq shared = DropInline { uniq; shared }
+
+  let init ~dups ~drops =
+    (dups, List.map (fun x -> (DropRegular, x)) drops)
+    
   let fuse (dups, drops) =
-    (Ident.Set.diff dups drops, Ident.Set.diff drops dups)
+    let dups' =
+      Ident.Set.diff dups (Ident.Set.of_list (List.map snd drops))
+    in
+    let drops' =
+      List.filter (fun (_, x) -> not (Ident.Set.mem x dups)) drops
+    in
+    (dups', drops')
 
-  let combine (dups, drops) =
-    (List.map dup (Ident.Set.elements dups)) @
-    (List.map drop (Ident.Set.elements drops))
+  let specialize_drops _shapes t = t
 
-  let specialize_drops shapes t =
-    (* optimize : (dups * drops) -> op list *)
-    let rec optimize t =
-      let (fdups, fdrops) = fuse t in
-      optimize_disjoint (fdups, Ident.Set.elements fdrops)
-
-    (* optimize_disjoint : (dups * dropsl) -> op list *)
-    and optimize_disjoint (dups, drops) =
-      match drops with
-        | [] -> List.map dup (Ident.Set.elements dups)
-        | y :: drops -> (
-          let (ydups, dups') = Ident.Set.partition (descendant shapes y) dups in
-          let (ydrops, drops') = List.partition (descendant shapes y) drops in
-          let rest = optimize_disjoint (dups', drops') in
-          let prefix = List.map drop ydrops in
-          let spec = specialize_drop ydups y in
-          rest @ prefix @ spec
-        )
-
-    (* specialize_drop : dups -> ident -> op list *)
-    and specialize_drop _ydups _y = []
-
-    in 
-      optimize t
-
-  let finalize shapes lam ops =
-    List.fold_right (fun op lam ->
+  let finalize ?(for_matched = false) shapes lam (dups, drops) =
+    let sequence_drop (op, x) lam =
       match op with
-      | RcDup x -> Dup.sequence ~bind_int:true shapes x lam
-      | RcDrop x -> Drop.sequence ~bind_int: true shapes x lam
-    ) ops lam
+      | DropRegular -> Drop.sequence ~bind_int:for_matched shapes x lam
+      | DropInline _ -> lam
+    in
+    Dup.sequence_many ~bind_int:for_matched shapes dups @@
+    List.fold_right sequence_drop drops lam
 end
