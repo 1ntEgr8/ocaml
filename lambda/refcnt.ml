@@ -89,15 +89,27 @@ end
 module Opt = struct
   type dups = Ident.Set.t
 
-  type drop_op =
+  and drop_op =
     | DropRegular
-    | DropInline of { uniq: Ident.Set.t ; shared: Ident.Set.t }
-  type drops = (drop_op * Ident.t) list
+    | DropInline of { uniq: t ; shared: Ident.Set.t }
+  and drops = (drop_op * Ident.t) list
 
   (* Maintains the invariant where all dups are done before any drops *)
-  type t = dups * drops
+  and t = dups * drops
 
-  let _inline_drop uniq shared = DropInline { uniq; shared }
+  open Format
+
+  let _ppf = std_formatter
+
+  let _print ppf (dups, drops) =
+    Ident.Set.iter (fun x ->
+      fprintf ppf "dup %a\n" Ident.print x) dups ;
+    fprintf ppf "drops:\n" ;
+    List.iter (fun (op, x) ->
+      match op with
+      | DropRegular -> fprintf ppf "drop %a\n" Ident.print x
+      | DropInline _ -> fprintf ppf "drop_inline %a\n" Ident.print x)
+    drops
 
   let init ~dups ~drops =
     (dups, List.map (fun x -> (DropRegular, x)) drops)
@@ -131,18 +143,48 @@ module Opt = struct
           let spec = specialize_drop y_dups y in
           (rest_dups, prefix @ [spec] @ rest_drops)
 
-    and specialize_drop _dups y =
-      (DropInline { uniq= Ident.Set.empty; shared= Ident.Set.empty }, y)
+    and specialize_drop dups y =
+      let shared = dups in
+      let maybe_children = children_of shapes y in
+      match maybe_children with
+      | None -> (* don't specialize *) (DropRegular, y)
+      | Some children ->
+        let children =
+          Ident.Set.elements children
+          |> List.map (fun x -> (DropRegular, x))
+        in
+        let uniq = optimize (dups, children) in
+        (DropInline { uniq; shared }, y)
 
     in
       optimize t
 
-
-  let finalize ?(for_matched = false) shapes lam (dups, drops) =
+  let rec finalize ?(for_matched = false) shapes lam (dups, drops) =
     let sequence_drop (op, x) lam =
       match op with
       | DropRegular -> Drop.sequence ~bind_int:for_matched shapes x lam
-      | DropInline _ -> lam
+      | DropInline { uniq ; shared } ->
+          (* Dups on integer vars inside a matched body must be
+             outside the if statement since we need to bind-copy them. They
+             must be performed before the parent is dropped.
+           *)
+          let int_dups, shared =
+              let is_int x =
+                let shape = Ident.Map.find_opt x shapes in
+                match shape with
+                | Some shape -> is_int shape
+                | _ -> false
+              in
+              Ident.Set.partition (is_int) shared
+          in
+          let cond = Drop.is_unique x in
+          let e1 = finalize ~for_matched shapes (Drop.free x) uniq in
+          let e2 =
+            Dup.sequence_many shapes shared @@
+            Drop.decr x
+          in
+          Dup.sequence_many ~bind_int:for_matched shapes int_dups @@
+          Lsequence (Lifthenelse (cond, e1, e2), lam)
     in
     Dup.sequence_many ~bind_int:for_matched shapes dups @@
     List.fold_right sequence_drop drops lam

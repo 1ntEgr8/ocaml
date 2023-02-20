@@ -100,7 +100,7 @@ let parc expr =
         let ys = free_variables env expr in
         let shapes' =
           List.fold_left (fun shapes (id, vk) ->
-            Ident.Map.add id (Lshape.infer_from_value_kind vk) shapes   
+            Ident.Map.add id (Lshape.infer_from_value_kind ~name:id vk) shapes   
           ) shapes params
         in
         let body_fvs = free_variables env body in
@@ -150,7 +150,7 @@ let parc expr =
                 env with
                 borrowed;
                 owned = owned';
-                shapes = Ident.Map.add x (Lshape.infer_from_value_kind value_kind) shapes
+                shapes = Ident.Map.add x (Lshape.infer_from_value_kind ~name:x value_kind) shapes
               }
               e2
           in
