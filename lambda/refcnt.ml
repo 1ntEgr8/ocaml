@@ -9,6 +9,7 @@ let drop_ptr_native_name = "caml_rc_drop_ptr"
 let decr_native_name = "caml_rc_decr"
 let free_native_name = "caml_rc_free"
 let is_unique_native_name = "caml_rc_is_unique"
+let get_refcount = "caml_obj_get_refcount"
 
 module StringSet = Set.Make(String)
 
@@ -22,6 +23,7 @@ let native_names =
     decr_native_name ;
     free_native_name ;
     is_unique_native_name ;
+    get_refcount ;
   ]
 
 let is_rc_op x = StringSet.mem x native_names 
