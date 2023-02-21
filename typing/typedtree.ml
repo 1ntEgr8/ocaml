@@ -714,6 +714,31 @@ let shallow_map_pattern_desc
   | Tpat_or (p1,p2,path) ->
       Tpat_or (f.f p1, f.f p2, path)
 
+let shallow_map_value_pattern_desc
+        : (value general_pattern -> value general_pattern) -> value pattern_desc -> value pattern_desc
+        = fun f d -> match d with
+        | Tpat_alias (p1, id, s) ->
+            Tpat_alias (f p1, id, s)
+        | Tpat_tuple pats ->
+            Tpat_tuple (List.map f pats)
+        | Tpat_record (lpats, closed) ->
+            Tpat_record (List.map (fun (lid, l,p) -> lid, l, f p) lpats, closed)
+        | Tpat_construct (lid, c, pats, ty) ->
+            Tpat_construct (lid, c, List.map f pats, ty)
+        | Tpat_array pats ->
+            Tpat_array (List.map f pats)
+        | Tpat_lazy p1 -> Tpat_lazy (f p1)
+        | Tpat_variant (x1, Some p1, x2) ->
+            Tpat_variant (x1, Some (f p1), x2)
+        | Tpat_var _
+        | Tpat_constant _
+        | Tpat_any
+        | Tpat_variant (_,None,_) -> d
+        | Tpat_or (p1,p2,path) ->
+            Tpat_or (f p1, f p2, path)
+
+
+
 let rec iter_general_pattern
   : type k . pattern_action -> k general_pattern -> unit
   = fun f p ->

@@ -1080,36 +1080,53 @@ and transl_match ~scopes e arg pat_expr_list partial =
     List.rev x, List.rev y, List.rev z
   in
   
-  (* Refcount management *)
-  (* NOTE: We don't need need to insert rc_copies anymore :). We guarantee
-     that Perceus runs before the Simplif pass *)
-  (* 
-  let insert_rc_copy (pat, rhs) =
-    (* TODO(1ntEgr8): check if variable is used in rhs before inserting rc_copy *)
-    let ids = Typedtree.pat_bound_idents_full pat in
-    let bind_ident_with_rc_copy body (ident, _loc, ty) =
-      let k = Typeopt.value_kind pat.pat_env ty in
-      let new_ident = Ident.rename ident in
-      bind_with_value_kind
-        Strict
-        (new_ident, k)
-        (Refcnt.dup_copy (Lvar ident))
-        (rename (Ident.Map.singleton ident new_ident) body)
-    in
-    let rhs_with_rc_copies =
-      List.fold_left bind_ident_with_rc_copy rhs ids
-    in
-    (pat, rhs_with_rc_copies)
-  in
-  *)
+  (* Parc-related transformations *)
 
-  (* Wrap each case body with the Matched_body marker *)
-  let wrap_marker (pat, rhs) =
-    (pat, Lmarker (Matched_body pat, rhs))
-  in
+
   let val_cases =
     if !Clflags.automated_refcounting then
-      List.map wrap_marker val_cases
+      (* Name each sub-pattern *)
+      let name_pattern (pat, rhs) =
+        let rec helper
+          : value general_pattern -> value general_pattern
+        = fun pat ->
+          match pat.pat_desc with
+          | Tpat_alias _ | Tpat_var _ -> pat
+          | _ ->
+              let id = Ident.create_local "*parc*" in
+              let subpat =
+                { pat with
+                  pat_desc= shallow_map_value_pattern_desc helper pat.pat_desc
+                }
+              in
+              {
+                pat_desc= Tpat_alias (subpat, id, Location.mknoloc "") ;
+                pat_loc= pat.pat_loc ;
+                pat_extra= [] ;
+                pat_type= pat.pat_type ;
+                pat_env=
+                  Env.add_value
+                    id
+                    {
+                      val_type= pat.pat_type;
+                      val_kind= Val_reg ;
+                      Types.val_loc= pat.pat_loc ;
+                      val_attributes= [] ;
+                      val_uid= Uid.mk ~current_unit:(Env.get_unit_name())
+                    }
+                    pat.pat_env
+                ;
+                pat_attributes= []
+              }
+        in
+        (helper pat, rhs)
+      in
+      (* Wrap each case body with the Matched_body marker *)
+      let wrap_marker (pat, rhs) =
+        (pat, Lmarker (Matched_body pat, rhs))
+      in
+      List.map name_pattern val_cases
+      |> List.map wrap_marker
     else
       val_cases
   in
