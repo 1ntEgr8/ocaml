@@ -877,6 +877,11 @@ let mk_dparc_trace f =
   "-dparc-trace", Arg.Unit f, " dump trace of parc algorithm execution"
 ;;
 
+let mk_dparc_opt_trace f =
+  "-dparc-opt-trace", Arg.Unit f, " dump trace of parc optimization passes"
+;;
+
+
 let mk_opaque f =
   "-opaque", Arg.Unit f,
   " Does not generate cross-module optimization information\n\
@@ -1140,6 +1145,7 @@ module type Optcommon_options = sig
   val _specialize_drops : unit -> unit
   val _dparc : unit -> unit
   val _dparc_trace : unit -> unit
+  val _dparc_opt_trace : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -1520,6 +1526,7 @@ struct
     mk_specialize_drops F._specialize_drops;
     mk_dparc F._dparc;
     mk_dparc_trace F._dparc_trace;
+    mk_dparc_opt_trace F._dparc_opt_trace;
 
     mk_args F._args;
     mk_args0 F._args0;
@@ -1630,6 +1637,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_specialize_drops F._specialize_drops;
     mk_dparc F._dparc;
     mk_dparc_trace F._dparc_trace;
+    mk_dparc_opt_trace F._dparc_opt_trace;
   ]
 end;;
 
@@ -1822,6 +1830,7 @@ module Default = struct
     let _specialize_drops = set specialize_drops
     let _dparc = set dump_parc
     let _dparc_trace = set dump_parc_trace
+    let _dparc_opt_trace = set dump_parc_opt_trace
     let _inline spec =
       Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
         inline_threshold
