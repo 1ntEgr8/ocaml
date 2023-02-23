@@ -90,7 +90,10 @@ let infer_from_value_kind ?name vk =
 let rec infer_from_pattern ?name pat =
   let open Types in
   match pat.pat_desc with
-  | Tpat_any -> (gen_shape name None, Ident.Map.empty)
+  | Tpat_any -> (* (gen_shape name None, Ident.Map.empty) *)
+    let vk = Typeopt.value_kind pat.pat_env pat.pat_type in
+    let shape = infer_from_value_kind ?name vk in
+    (shape, Ident.Map.empty)
   | Tpat_var (id, _) ->
       let vk = Typeopt.value_kind pat.pat_env pat.pat_type in
       let shape = infer_from_value_kind ~name:id vk in
