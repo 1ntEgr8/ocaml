@@ -101,20 +101,42 @@ module Opt = struct
 
   open Format
 
-  let _ppf = std_formatter
+  let ppf = std_formatter
 
-  let _print ppf (dups, drops) =
-    Ident.Set.iter (fun x ->
-      fprintf ppf "dup %a\n" Ident.print x) dups ;
-    fprintf ppf "drops:\n" ;
-    List.iter (fun (op, x) ->
+  let rec print ppf (dups, drops) =
+    let dups = Ident.Set.elements dups in
+    fprintf ppf "@[<v 0>";
+    pp_print_list (fun ppf x ->
+      fprintf ppf "dup %a" Ident.print x
+    ) ppf dups ;
+    if (List.length dups > 0) then
+      pp_print_cut ppf () ;
+    pp_print_list (fun ppf (op, x) ->
       match op with
-      | DropRegular -> fprintf ppf "drop %a\n" Ident.print x
-      | DropInline _ -> fprintf ppf "drop_inline %a\n" Ident.print x)
-    drops
+      | DropRegular -> fprintf ppf "drop %a" Ident.print x
+      | DropInline { uniq; shared } ->
+          fprintf ppf "@[<v 2>";
+          fprintf ppf "drop_inline %a@," Ident.print x ;
+          fprintf ppf "(" ;
+          fprintf ppf "@[<v 2>uniq:@;%a@]@," print uniq;
+          fprintf ppf "@[<v 2>shared:@;%a@]" Ident.Set.print shared;
+          fprintf ppf ")" ;
+          fprintf ppf "@]"
+    ) ppf drops ;
+    fprintf ppf "@]"
+
+  let dump_if ppf pass t =
+    if !Clflags.dump_parc_opt_trace then (
+      fprintf ppf "@.parc_opt(after %s):@." pass;
+      print ppf t ;
+      pp_print_newline ppf () ;
+    );
+    t
 
   let init ~dups ~drops =
-    (dups, List.map (fun x -> (DropRegular, x)) drops)
+    let t = (dups, List.map (fun x -> (DropRegular, x)) drops)
+    in
+    dump_if ppf "init" t
     
   let fuse (dups, drops) =
     let dups' =
@@ -123,7 +145,8 @@ module Opt = struct
     let drops' =
       List.filter (fun (_, x) -> not (Ident.Set.mem x dups)) drops
     in
-    (dups', drops')
+    let t = (dups', drops') in
+    dump_if ppf "fuse" t
 
   let specialize_drops shapes t =
     let rec optimize t =
@@ -159,7 +182,7 @@ module Opt = struct
         (DropInline { uniq; shared }, y)
 
     in
-      optimize t
+      dump_if ppf "specialize_drops" (optimize t)
 
   let rec finalize ?(for_matched = false) shapes lam (dups, drops) =
     let sequence_drop (op, x) lam =
