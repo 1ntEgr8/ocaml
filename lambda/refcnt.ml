@@ -203,7 +203,7 @@ module Opt = struct
     t'
 
   let finalize ?(for_matched = false) shapes lam t =
-  let rec helper lam (dups, drops) =
+    let rec helper lam (dups, drops) =
       let is_int x =
         let shape = Ident.Map.find_opt x shapes in
         match shape with
@@ -240,6 +240,14 @@ module Opt = struct
       let lam' = dup_seq @@ drop_seq in
       (lam', idups')
     in
-    let lam', int_dups = helper lam t in
-    Dup.sequence_many ~bind_int:for_matched shapes int_dups @@ lam'
+      (* The [Simplif] pass will transform every intvar to a field access. This
+         is bad because it may lead to a use-after-free (for instance, when the
+         parent was freed in the dup/drop preamble for a matched body
+
+         To remedy this, we bind every intvar using [rc_dup_copy], which serves
+         as a barrier that prevents [Simplif] from transforming intvars beyond
+         this binding.
+       *)
+      let lam', int_dups = helper lam t in
+      Dup.sequence_many ~bind_int:for_matched shapes int_dups @@ lam'
 end
