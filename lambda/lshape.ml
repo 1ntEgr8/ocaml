@@ -71,12 +71,12 @@ let children_of shapes x =
       | _ -> None)
   | None -> None
 
-let rec descendant shapes parent x =
+let rec descendant shapes ~parent x =
   let ys = children_of shapes parent in
   match ys with
   | None -> false
   | Some ys ->
-    Ident.Set.mem x ys || Ident.Set.exists (descendant shapes x) ys
+    Ident.Set.mem x ys || Ident.Set.exists (fun y -> descendant shapes ~parent:y x) ys
 
 let shape vk name info = { kind=vk; name; info }
 let int_shape name = { kind=Pintval; name; info= Some Empty }

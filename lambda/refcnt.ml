@@ -99,69 +99,83 @@ module Opt = struct
   (* Maintains the invariant where all dups are done before any drops *)
   and t = dups * drops
 
-  open Format
+  module Logging = struct
+    open Format
 
-  let ppf = std_formatter
+    let rec print ppf (dups, drops) =
+      let dups = Ident.Set.elements dups in
+      fprintf ppf "@[<v 0>";
+      pp_print_list (fun ppf x ->
+        fprintf ppf "dup %a" Ident.print x
+      ) ppf dups ;
+      if (List.length dups > 0) then
+        pp_print_cut ppf () ;
+      pp_print_list (fun ppf (op, x) ->
+        match op with
+        | DropRegular -> fprintf ppf "drop %a" Ident.print x
+        | DropInline { uniq; shared } ->
+            fprintf ppf "@[<v 2>";
+            fprintf ppf "drop_inline %a@," Ident.print x ;
+            fprintf ppf "(" ;
+            fprintf ppf "@[<v 2>uniq:@;%a@]@," print uniq;
+            fprintf ppf "@[<v 2>shared:@;%a@]" Ident.Set.print shared;
+            fprintf ppf ")" ;
+            fprintf ppf "@]"
+      ) ppf drops ;
+      fprintf ppf "@]"
 
-  let rec print ppf (dups, drops) =
-    let dups = Ident.Set.elements dups in
-    fprintf ppf "@[<v 0>";
-    pp_print_list (fun ppf x ->
-      fprintf ppf "dup %a" Ident.print x
-    ) ppf dups ;
-    if (List.length dups > 0) then
-      pp_print_cut ppf () ;
-    pp_print_list (fun ppf (op, x) ->
-      match op with
-      | DropRegular -> fprintf ppf "drop %a" Ident.print x
-      | DropInline { uniq; shared } ->
-          fprintf ppf "@[<v 2>";
-          fprintf ppf "drop_inline %a@," Ident.print x ;
-          fprintf ppf "(" ;
-          fprintf ppf "@[<v 2>uniq:@;%a@]@," print uniq;
-          fprintf ppf "@[<v 2>shared:@;%a@]" Ident.Set.print shared;
-          fprintf ppf ")" ;
-          fprintf ppf "@]"
-    ) ppf drops ;
-    fprintf ppf "@]"
+    let pre_dump ppf pass t =
+      if !Clflags.dump_parc_opt_trace then (
+        fprintf ppf "@[<v 2>@;@[<v 0>parc_opt(before: %s):@,%a@;"
+          pass
+          print t ;
+      )
 
-  let dump_if ppf pass t =
-    if !Clflags.dump_parc_opt_trace then (
-      fprintf ppf "@.parc_opt(after %s):@." pass;
-      print ppf t ;
-      pp_print_newline ppf () ;
-    );
-    t
+    let post_dump ppf pass t =
+      if !Clflags.dump_parc_opt_trace then (
+        fprintf ppf "@,parc_opt(after: %s):@,%a@]@]@;"
+          pass
+          print t ;
+      )
+
+    let init ppf () =
+      if !Clflags.dump_parc_opt_trace then (
+        fprintf ppf "@.parc_opt_trace:@."
+      )
+  end
+
+  let ppf = Format.std_formatter
 
   let init ~dups ~drops =
-    let t = (dups, List.map (fun x -> (DropRegular, x)) drops)
-    in
-    dump_if ppf "init" t
+    Logging.init ppf () ;
+    (dups, List.map (fun x -> (DropRegular, x)) drops)
     
-  let fuse (dups, drops) =
+  let fuse ((dups, drops) as t) =
+    Logging.pre_dump ppf "fuse" t ;
+
     let dups' =
       Ident.Set.diff dups (Ident.Set.of_list (List.map snd drops))
     in
     let drops' =
       List.filter (fun (_, x) -> not (Ident.Set.mem x dups)) drops
     in
-    let t = (dups', drops') in
-    dump_if ppf "fuse" t
+    let t' = (dups', drops') in
 
-  let specialize_drops shapes t =
-    let rec optimize t =
-      let (fdups, fdrops) = fuse t in
-      optimize_disjoint fdups fdrops
-    
-    and optimize_disjoint dups drops =
+    Logging.post_dump ppf "fuse" t' ;
+    t'
+
+  let rec specialize_drops shapes t =
+    Logging.pre_dump ppf "specialize_drops" t;
+
+    let rec optimize_disjoint dups drops =
       match drops with
       | [] -> (dups, [])
       | (_, y) :: drops ->
           let (y_dups, dups') =
-            Ident.Set.partition (descendant shapes y) dups
+            Ident.Set.partition (descendant shapes ~parent:y) dups
           in
           let (y_drops, drops') =
-            List.partition ((fun (_, x) -> descendant shapes y x)) drops
+            List.partition ((fun (_, x) -> descendant shapes ~parent:y x)) drops
           in
           let (rest_dups, rest_drops) = optimize_disjoint dups' drops' in
           let prefix = y_drops in
@@ -178,11 +192,15 @@ module Opt = struct
           Ident.Set.elements children
           |> List.map (fun x -> (DropRegular, x))
         in
-        let uniq = optimize (dups, children) in
+        let uniq = specialize_drops shapes (dups, children) in
         (DropInline { uniq; shared }, y)
-
     in
-      dump_if ppf "specialize_drops" (optimize t)
+
+    let (fdups, fdrops) = fuse t in
+    let t' = optimize_disjoint fdups fdrops in
+
+    Logging.post_dump ppf "specialize_drops" t' ;
+    t'
 
   let rec finalize ?(for_matched = false) shapes lam (dups, drops) =
     let sequence_drop (op, x) lam =
