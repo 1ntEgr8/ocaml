@@ -202,33 +202,44 @@ module Opt = struct
     Logging.post_dump ppf "specialize_drops" t' ;
     t'
 
-  let rec finalize ?(for_matched = false) shapes lam (dups, drops) =
-    let sequence_drop (op, x) lam =
-      match op with
-      | DropRegular -> Drop.sequence ~bind_int:for_matched shapes x lam
-      | DropInline { uniq ; shared } ->
-          (* Dups on integer vars inside a matched body must be
-             outside the if statement since we need to bind-copy them. They
-             must be performed before the parent is dropped.
-           *)
-          let int_dups, shared =
-              let is_int x =
-                let shape = Ident.Map.find_opt x shapes in
-                match shape with
-                | Some shape -> is_int shape
-                | _ -> false
-              in
-              Ident.Set.partition (is_int) shared
-          in
-          let cond = Drop.is_unique x in
-          let e1 = finalize ~for_matched shapes (Drop.free x) uniq in
-          let e2 =
-            Dup.sequence_many shapes shared @@
-            Drop.decr x
-          in
-          Dup.sequence_many ~bind_int:for_matched shapes int_dups @@
-          Lsequence (Lifthenelse (cond, e1, e2), lam)
+  let finalize ?(for_matched = false) shapes lam t =
+  let rec helper lam (dups, drops) =
+      let is_int x =
+        let shape = Ident.Map.find_opt x shapes in
+        match shape with
+        | Some shape -> is_int shape
+        | _ -> false
+      in
+      let merge_idups i1 i2 =
+        Ident.Set.union i1 i2
+      in
+      let sequence_drop (op, x) (lam, idups) =
+        match op with
+        | DropRegular ->
+            (Drop.sequence shapes x lam, idups)
+        | DropInline { uniq ; shared } ->
+            let idups0, shared = Ident.Set.partition (is_int) shared in
+            let cond = Drop.is_unique x in
+            let e1, idups1 = helper (Drop.free x) uniq in
+            let e2 =
+              Dup.sequence_many shapes shared @@
+              Drop.decr x
+            in
+            let lam' = 
+              Dup.sequence_many shapes idups @@
+              Lsequence (Lifthenelse (cond, e1, e2), lam)
+            in
+            let idups' =
+              merge_idups idups0 (merge_idups idups idups1)
+            in
+            (lam', idups')
+      in
+      let idups, rest_dups = Ident.Set.partition is_int dups in
+      let drop_seq, idups' = List.fold_right sequence_drop drops (lam, idups) in
+      let dup_seq = Dup.sequence_many shapes rest_dups in
+      let lam' = dup_seq @@ drop_seq in
+      (lam', idups')
     in
-    Dup.sequence_many ~bind_int:for_matched shapes dups @@
-    List.fold_right sequence_drop drops lam
+    let lam', int_dups = helper lam t in
+    Dup.sequence_many ~bind_int:for_matched shapes int_dups @@ lam'
 end
