@@ -59,10 +59,10 @@ function main()
   
   local srcdir=$workdir/my/parc/
   local programs=(
-    # "rbtree.ml"
-    # "rbtree_ck.ml"
-    # "deriv.ml"
-    # "nqueens.ml"
+    "rbtree.ml"
+    "rbtree_ck.ml"
+    "deriv.ml"
+    "nqueens.ml"
     "cfold.ml"
   )
   local srcs=("${programs[@]/#/"$srcdir"}")
