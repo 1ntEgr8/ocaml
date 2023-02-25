@@ -130,6 +130,7 @@ LAMBDA = \
   lambda/lshape.cmo \
   lambda/refcnt.cmo \
   lambda/parc.cmo \
+  lambda/reuse.cmo \
   lambda/switch.cmo \
   lambda/matching.cmo \
   lambda/translobj.cmo \

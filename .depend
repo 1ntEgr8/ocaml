@@ -3494,14 +3494,23 @@ lambda/lambda.cmi : \
     lambda/debuginfo.cmi \
     parsing/asttypes.cmi
 lambda/lshape.cmo : \
-    lambda/printlambda.cmi \
+    typing/types.cmi \
+    typing/typeopt.cmi \
+    typing/typedtree.cmi \
     lambda/lambda.cmi \
+    typing/ident.cmi \
     lambda/lshape.cmi
 lambda/lshape.cmx : \
-    lambda/printlambda.cmx \
+    typing/types.cmx \
+    typing/typeopt.cmx \
+    typing/typedtree.cmx \
     lambda/lambda.cmx \
+    typing/ident.cmx \
     lambda/lshape.cmi
-lambda/lshape.cmi :
+lambda/lshape.cmi : \
+    typing/typedtree.cmi \
+    lambda/lambda.cmi \
+    typing/ident.cmi
 lambda/matching.cmo : \
     typing/types.cmi \
     typing/typeopt.cmi \
@@ -3603,20 +3612,32 @@ lambda/printlambda.cmi : \
     lambda/lambda.cmi
 lambda/refcnt.cmo : \
     typing/primitive.cmi \
+    lambda/lshape.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
     lambda/debuginfo.cmi \
+    utils/clflags.cmi \
     lambda/refcnt.cmi
 lambda/refcnt.cmx : \
     typing/primitive.cmx \
+    lambda/lshape.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
     lambda/debuginfo.cmx \
+    utils/clflags.cmx \
     lambda/refcnt.cmi
 lambda/refcnt.cmi : \
     lambda/lshape.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi
+lambda/reuse.cmo : \
+    lambda/lambda.cmi \
+    lambda/reuse.cmi
+lambda/reuse.cmx : \
+    lambda/lambda.cmx \
+    lambda/reuse.cmi
+lambda/reuse.cmi : \
+    lambda/lambda.cmi
 lambda/runtimedef.cmo : \
     lambda/runtimedef.cmi
 lambda/runtimedef.cmx : \
@@ -6163,6 +6184,7 @@ driver/optcompile.cmo : \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
+    lambda/reuse.cmi \
     utils/profile.cmi \
     lambda/printlambda.cmi \
     lambda/parc.cmi \
@@ -6180,6 +6202,7 @@ driver/optcompile.cmx : \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
+    lambda/reuse.cmx \
     utils/profile.cmx \
     lambda/printlambda.cmx \
     lambda/parc.cmx \

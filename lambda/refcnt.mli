@@ -30,7 +30,7 @@ module Opt : sig
 
   val fuse : t -> t
 
-  val drop_specialization: shape_map -> t -> t
+  val specialize_drops : shape_map -> t -> t
 
   val finalize : ?for_matched:bool -> shape_map -> lambda -> t -> lambda
 end

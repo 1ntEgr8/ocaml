@@ -164,7 +164,7 @@ module Opt = struct
     Logging.post_dump ppf "fuse" t' ;
     t'
 
-  let rec drop_specialization shapes t =
+  let rec specialize_drops shapes t =
     Logging.pre_dump ppf "drop_specialization" t;
 
     let rec optimize_disjoint dups drops =
@@ -192,7 +192,7 @@ module Opt = struct
           Ident.Set.elements children
           |> List.map (fun x -> (DropRegular, x))
         in
-        let uniq = drop_specialization shapes (dups, children) in
+        let uniq = specialize_drops shapes (dups, children) in
         (DropInline { uniq; shared }, y)
     in
 
