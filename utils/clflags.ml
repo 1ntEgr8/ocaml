@@ -184,7 +184,7 @@ let afl_inst_ratio = ref 100           (* -afl-inst-ratio *)
 let function_sections = ref false      (* -function-sections *)
 
 let automated_refcounting = ref false      (* -automated-refcounting *)
-let specialize_drops = ref false           (* -specialize-drops *)
+let drop_specialization = ref false           (* -drop-specialization *)
 let dump_parc = ref false                  (* -dparc *)
 let dump_parc_trace = ref false            (* -dparc-trace *)
 let dump_parc_opt_trace = ref false        (* -dparc-opt-trace *)

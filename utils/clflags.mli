@@ -213,7 +213,7 @@ val afl_instrument : bool ref
 val afl_inst_ratio : int ref
 val function_sections : bool ref
 val automated_refcounting : bool ref
-val specialize_drops: bool ref
+val drop_specialization: bool ref
 val dump_parc : bool ref
 val dump_parc_trace: bool ref
 val dump_parc_opt_trace: bool ref

@@ -69,6 +69,7 @@ function main()
   
   local baseflags="-S -O2 -g"
   local stdlibflag="-I $workdir/stdlib"
+  local extra_flags
 
   for src in ${srcs[@]}; do
     local program=$(basename -- ${src} .ml)
@@ -90,10 +91,10 @@ function main()
       "${output}"
 
     # parc + drop specialization
-    extra_flags="-automated-refcounting -specialize-drops"
+    extra_flags="-automated-refcounting -drop-specialization"
     parc ${baseflags} ${stdlibflag} ${extra_flags} -o ${output} ${src}
     bench \
-      "$(label "parc+specialize-drops" ${program})" \
+      "$(label "parc+drop-specialization" ${program})" \
       "${num_runs}" \
       "${output}"
   done

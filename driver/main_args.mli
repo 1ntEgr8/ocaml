@@ -225,7 +225,7 @@ module type Optcommon_options = sig
   val _dstartup :  unit -> unit
 
   val _automated_refcounting : unit -> unit
-  val _specialize_drops: unit -> unit
+  val _drop_specialization: unit -> unit
   val _dparc : unit -> unit
   val _dparc_trace : unit -> unit
   val _dparc_opt_trace : unit -> unit

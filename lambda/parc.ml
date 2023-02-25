@@ -286,7 +286,7 @@ let parc expr =
         in
         let lam' =
           Opt.init ~dups:should_dup ~drops:should_drop
-          |> map_if !Clflags.specialize_drops (Opt.specialize_drops shapes')
+          |> map_if !Clflags.drop_specialization (Opt.drop_specialization shapes')
           |> Opt.finalize
               ~for_matched:true
               shapes'
