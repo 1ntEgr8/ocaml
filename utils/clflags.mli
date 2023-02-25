@@ -217,6 +217,8 @@ val drop_specialization: bool ref
 val dump_parc : bool ref
 val dump_parc_trace: bool ref
 val dump_parc_opt_trace: bool ref
+val reuse_token_insertion : bool ref
+val reuse_specialization : bool ref
 
 val all_passes : string list ref
 val dumped_pass : string -> bool

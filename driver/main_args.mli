@@ -229,6 +229,8 @@ module type Optcommon_options = sig
   val _dparc : unit -> unit
   val _dparc_trace : unit -> unit
   val _dparc_opt_trace : unit -> unit
+  val _reuse_token_insertion : unit -> unit
+  val _reuse_specialization : unit -> unit
 end;;
 
 module type Optcomp_options = sig

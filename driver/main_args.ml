@@ -881,6 +881,14 @@ let mk_dparc_opt_trace f =
   "-dparc-opt-trace", Arg.Unit f, " dump trace of parc optimization passes"
 ;;
 
+let mk_reuse_token_insertion f =
+  "-reuse-token-insertion", Arg.Unit f, " insert reuse tokens after parc"
+;;
+
+let mk_reuse_specialization f =
+  "-reuse-specialization", Arg.Unit f, " turn on reuse specialization"
+;;
+
 
 let mk_opaque f =
   "-opaque", Arg.Unit f,
@@ -1146,6 +1154,8 @@ module type Optcommon_options = sig
   val _dparc : unit -> unit
   val _dparc_trace : unit -> unit
   val _dparc_opt_trace : unit -> unit
+  val _reuse_token_insertion : unit -> unit
+  val _reuse_specialization : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -1527,6 +1537,8 @@ struct
     mk_dparc F._dparc;
     mk_dparc_trace F._dparc_trace;
     mk_dparc_opt_trace F._dparc_opt_trace;
+    mk_reuse_token_insertion F._reuse_token_insertion;
+    mk_reuse_specialization F._reuse_specialization;
 
     mk_args F._args;
     mk_args0 F._args0;
@@ -1638,6 +1650,8 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dparc F._dparc;
     mk_dparc_trace F._dparc_trace;
     mk_dparc_opt_trace F._dparc_opt_trace;
+    mk_reuse_token_insertion F._reuse_token_insertion;
+    mk_reuse_specialization F._reuse_specialization;
   ]
 end;;
 
@@ -1831,6 +1845,8 @@ module Default = struct
     let _dparc = set dump_parc
     let _dparc_trace = set dump_parc_trace
     let _dparc_opt_trace = set dump_parc_opt_trace
+    let _reuse_token_insertion = set reuse_token_insertion
+    let _reuse_specialization = set reuse_specialization
     let _inline spec =
       Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
         inline_threshold
