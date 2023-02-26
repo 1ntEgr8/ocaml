@@ -102,21 +102,24 @@ let rec infer_from_pattern ?name pat =
   | Tpat_construct (_, cstr, patl, _) ->
       (match cstr.cstr_tag with
       | Cstr_constant _ | Cstr_unboxed -> (int_shape name, Ident.Map.empty)
-      | Cstr_block _ ->
-          let inferred = List.map (fun pat -> infer_from_pattern pat) patl in
-          let ss = List.map fst inferred in
-          let shape_map =
-            List.map snd inferred
-            |> List.fold_left merge_maps Ident.Map.empty
-          in
-          (gen_shape name (Some (Compound ss)), shape_map)
+      | Cstr_block _ -> infer_from_pattern_many ?name patl
       | _ -> (gen_shape name None, Ident.Map.empty))
   | Tpat_alias (subpat, id, _) ->
       let shape, shapes' = infer_from_pattern ~name:id subpat in
       (shape, Ident.Map.add id shape shapes')
+  | Tpat_tuple patl ->
+      infer_from_pattern_many ?name patl 
   | _ ->
       (* Not handled yet. Return a sound approximation *)
       (gen_shape name None, Ident.Map.empty)
+and infer_from_pattern_many ?name pats =
+    let inferred = List.map (fun pat -> infer_from_pattern pat) pats in
+    let ss = List.map fst inferred in
+    let shape_map =
+      List.map snd inferred
+      |> List.fold_left merge_maps Ident.Map.empty
+    in
+    (gen_shape name (Some (Compound ss)), shape_map)
 
 let infer_from_matched id pat =
   let id_shape, bv_shapes = infer_from_pattern ~name:id pat in 
