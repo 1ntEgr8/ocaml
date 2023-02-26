@@ -202,6 +202,29 @@ module Opt = struct
     Logging.post_dump ppf "drop_specialization" t' ;
     t'
 
+  let flatten_inline_drops ((dups, drops) as t)=
+    Logging.pre_dump ppf "flatten_inline_drops" t;
+
+    let is_inline = function
+      | (DropInline _ , _) -> true
+      | _ -> false
+    in
+    let rec flatten_drop ((op, x) as drop) =
+      match op with
+      | DropRegular -> [drop]
+      | DropInline ({ uniq= (dups, drops) } as i) ->
+          let (idrops, rdrops) = List.partition is_inline drops in
+          let drop' = 
+            (DropInline { i with uniq= (dups, rdrops) }, x)
+          in
+          let rest = List.concat_map flatten_drop idrops in
+          drop' :: rest
+    in
+    let t' = (dups, List.concat_map flatten_drop drops) in
+
+    Logging.post_dump ppf "flatten_inline_drops" t' ;
+    t'
+
   let finalize ?(for_matched = false) shapes lam t =
     let rec helper lam (dups, drops) =
       let is_int x =

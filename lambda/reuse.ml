@@ -1,4 +1,5 @@
 open Lambda
+open Typedtree
 
 type reuse_info = Ident.t
 
@@ -10,11 +11,13 @@ end)
 type _env = {
   mutable available: (reuse_info list) IntMap.t;     (* size => [reuse_info] *)
   mutable reused: Ident.Set.t;
+  mutable deconstructed: (pattern option) Ident.Map.t;
 }
 
 let empty_env = {
   available= IntMap.empty ;
   reused= Ident.Set.empty ;
+  deconstructed= Ident.Map.empty ;
 }
 
 let size_of _block_shape = 0
