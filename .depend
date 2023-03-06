@@ -3631,10 +3631,14 @@ lambda/refcnt.cmi : \
     lambda/lambda.cmi \
     typing/ident.cmi
 lambda/reuse.cmo : \
+    typing/typedtree.cmi \
     lambda/lambda.cmi \
+    typing/ident.cmi \
     lambda/reuse.cmi
 lambda/reuse.cmx : \
+    typing/typedtree.cmx \
     lambda/lambda.cmx \
+    typing/ident.cmx \
     lambda/reuse.cmi
 lambda/reuse.cmi : \
     lambda/lambda.cmi

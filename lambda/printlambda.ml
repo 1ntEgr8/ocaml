@@ -673,6 +673,8 @@ and marker ppf = function
   | Match_begin x -> fprintf ppf "@[<2>match_begin@ <%a>@]" Ident.print x
   | Matched_body pat ->
       fprintf ppf "@[<2>matched_body@ <%a>@]" Printpat.pretty pat
+  | Reuse _ ->
+      fprintf ppf "reuse"
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->

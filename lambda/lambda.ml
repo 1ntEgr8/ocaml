@@ -307,6 +307,9 @@ type lambda =
 and marker_info =
   | Match_begin of Ident.t
   | Matched_body of Typedtree.pattern
+  | Reuse of reuse_info
+
+and reuse_info = Ident.t
 
 and lfunction =
   { kind: function_kind;
@@ -1012,3 +1015,7 @@ let find_exact_application kind ~arity args =
 
 let reset () =
   raise_count := 0
+
+(* [cstr] must be of the form:
+    Lprim (Pmakeblock (..), args, loc) *)
+let alloc_at ru_info cstr = Lmarker (Reuse ru_info, cstr)

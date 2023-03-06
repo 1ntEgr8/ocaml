@@ -297,6 +297,9 @@ type lambda =
 and marker_info =
   | Match_begin of Ident.t
   | Matched_body of Typedtree.pattern
+  | Reuse of reuse_info
+
+and reuse_info = Ident.t
 
 and lfunction = private
   { kind: function_kind;
@@ -476,3 +479,6 @@ val merge_inline_attributes
   -> inline_attribute option
 
 val reset: unit -> unit
+
+(* Allocate a value, reusing a prior allocation if possible *)
+val alloc_at : reuse_info -> lambda -> lambda
