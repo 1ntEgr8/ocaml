@@ -21,6 +21,7 @@ module Drop : sig
   val decr : Ident.t -> lambda
   val free : Ident.t -> lambda
   val is_unique : Ident.t -> lambda
+  val special: Ident.t -> lambda -> lambda -> lambda -> lambda
 end
 
 module Opt : sig
@@ -36,3 +37,5 @@ module Opt : sig
 
   val finalize : ?for_matched:bool -> shape_map -> lambda -> t -> lambda
 end
+
+val expand : lambda -> lambda

@@ -1,6 +1,8 @@
 open Lambda
 open Lshape
 
+(* Refcounting primitives *)
+
 let dup_copy_native_name  = "caml_rc_dup_copy"
 let dup_checked_native_name = "caml_rc_dup"
 let dup_ptr_native_name = "caml_rc_dup_ptr"
@@ -10,6 +12,16 @@ let decr_native_name = "caml_rc_decr"
 let free_native_name = "caml_rc_free"
 let is_unique_native_name = "caml_rc_is_unique"
 let get_refcount = "caml_obj_get_refcount"
+
+(* Phantom refcounting primitives
+
+   The following primitives are used in intermediate passes (like drop
+   specialization and reuse analysis). They must be expanded before
+   lowering to Clambda.
+*)
+
+let drop_special_name = "phantom_rc_drop_special"
+let drop_reuse_special_name = "phantom_rc_drop_reuse_special"
 
 module StringSet = Set.Make(String)
 
@@ -24,16 +36,20 @@ let native_names =
     free_native_name ;
     is_unique_native_name ;
     get_refcount ;
+    drop_special_name ;
+    drop_reuse_special_name ;
   ]
 
 let is_rc_op x = StringSet.mem x native_names 
 
-let prim name x =
+let prim_comp name args =
   Lprim (Pccall (Primitive.simple
           ~name:name
-          ~arity:1
+          ~arity:(List.length args)
           ~alloc:false
-      ), [Lvar x], Debuginfo.Scoped_location.Loc_unknown)
+      ), args, Debuginfo.Scoped_location.Loc_unknown)
+
+let prim name x = prim_comp name [Lvar x]
 
 module type RcOp = sig
   val ptr : Ident.t -> lambda
@@ -86,6 +102,8 @@ module Drop = struct
   let decr = prim decr_native_name
   let free = prim free_native_name
   let is_unique = prim is_unique_native_name
+  let special x uniq shared decr =
+    prim_comp drop_special_name [ Lvar x ; uniq ; shared ; decr ]
 end
 
 module Opt = struct
@@ -242,20 +260,11 @@ module Opt = struct
             (Drop.sequence shapes x lam, idups)
         | DropInline { uniq ; shared } ->
             let idups0, shared = Ident.Set.partition (is_int) shared in
-            let cond = Drop.is_unique x in
-            let e1, idups1 = helper (Drop.free x) uniq in
-            let e2 =
-              Dup.sequence_many shapes shared @@
-              Drop.decr x
-            in
-            let lam' = 
-              Dup.sequence_many shapes idups @@
-              Lsequence (Lifthenelse (cond, e1, e2), lam)
-            in
-            let idups' =
-              merge_idups idups0 (merge_idups idups idups1)
-            in
-            (lam', idups')
+            let euniq, idups1 = helper (Drop.free x) uniq in
+            let eshared = Dup.sequence_many shapes shared lambda_unit in
+            let edecr = Drop.decr x in
+            let idups' = merge_idups idups0 (merge_idups idups idups1) in
+            (Lsequence (Drop.special x euniq eshared edecr, lam), idups')
       in
       let idups, rest_dups = Ident.Set.partition is_int dups in
       let drop_seq, idups' = List.fold_right sequence_drop drops (lam, idups) in
@@ -274,3 +283,23 @@ module Opt = struct
       let lam', int_dups = helper lam t in
       Dup.sequence_many ~bind_int:for_matched shapes int_dups @@ lam'
 end
+
+(* Expand phantom primitives *)
+let expand =
+  let helper expr =
+    match expr with
+    | Lprim ((Pccall desc), [Lvar x; uniq; shared; decr], _)
+      when (Primitive.native_name desc = drop_special_name) ->
+      (* drop-special [x; uniq; shared; decr] expands to
+
+         if is_unique x then
+           uniq
+         else
+           shared ;
+           decr
+      *)
+      Lifthenelse (Drop.is_unique x, uniq, Lsequence (shared, decr))
+    | _ -> expr
+  in
+  Lambda.map helper
+    

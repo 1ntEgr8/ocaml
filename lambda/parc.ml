@@ -330,8 +330,20 @@ let parc expr =
     (env', e')
  in
   Logging.log ppf "parc: begin" empty_env expr;
-  parc_regular empty_env expr |> Logging.dump_if ppf
+  parc_regular empty_env expr
 
 let parc_program program =
-  let code = parc program.code in
+  (* TODO
+     - perceus (with drop specialization)
+     - reuse analysis
+       - token insertion
+       - specialization
+     - primitive expansion
+       - expand drop-special
+  *)
+  let code =
+    parc program.code
+    |> expand
+    |> Logging.dump_if ppf
+  in
   { program with code }
