@@ -22,6 +22,7 @@ module Drop : sig
   val free : Ident.t -> lambda
   val is_unique : Ident.t -> lambda
   val special: Ident.t -> lambda -> lambda -> lambda -> lambda
+  val reuse_special : Ident.t -> lambda -> lambda -> lambda -> lambda
 end
 
 module Opt : sig

@@ -104,6 +104,8 @@ module Drop = struct
   let is_unique = prim is_unique_native_name
   let special x uniq shared decr =
     prim_comp drop_special_name [ Lvar x ; uniq ; shared ; decr ]
+  let reuse_special x uniq shared decr =
+    prim_comp drop_reuse_special_name [ Lvar x ; uniq ; shared ; decr ]
 end
 
 module Opt = struct
@@ -299,6 +301,25 @@ let expand =
            decr
       *)
       Lifthenelse (Drop.is_unique x, uniq, Lsequence (shared, decr))
+    | Lprim ((Pccall desc), [Lvar x; uniq; shared; decr], _)
+      when (Primitive.native_name desc = drop_reuse_special_name) ->
+      (* drop-reuse-special [x; uniq; shared; decr] expands to
+
+         if is_unique x then
+           uniq ;
+           &x
+         else
+           shared ;
+           decr ;
+           NULL
+      *)
+      Lifthenelse (Drop.is_unique x,
+        Lsequence (uniq, Lvar x),
+        Lsequence (
+          Lsequence (shared, decr),
+          Lconst (Const_base (Const_int 0))
+        )
+      )
     | _ -> expr
   in
   Lambda.map helper
