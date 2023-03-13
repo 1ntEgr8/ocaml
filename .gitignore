@@ -283,4 +283,6 @@ _build
 /yacc/version.h
 /yacc/.gdb_history
 
-/my/*.s
+/my/**/*.s
+/my/**/__pycache__/
+/_bench_out/

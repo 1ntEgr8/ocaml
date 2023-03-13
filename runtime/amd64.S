@@ -614,7 +614,12 @@ CFI_STARTPROC
 	
   /* on entry: block on the stack, r11 is the segment, r10 is the page */
   /* note: we can potentially skip the thread local check as we only call mi_free if the block was unique and not thread shared */
+
+#if defined(SYS_macosx)
+  movq    %gs:0, %rax                 /* rax = thread id */
+#else
   movq    %fs:0, %rax                 /* rax = thread id */
+#endif
   cmpq    256(%r11), %rax             /* thread_id == segment->thread_id ? */
   popq    %rax                        /* load rax to point to the block */  
   jne     GCALL(caml_rc_asm_mi_free_generic_nonlocal) /* tail call */

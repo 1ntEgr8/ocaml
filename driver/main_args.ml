@@ -861,6 +861,35 @@ let mk_dstartup f =
   "-dstartup", Arg.Unit f, " (undocumented)"
 ;;
 
+let mk_automated_refcounting f =
+  "-automated-refcounting", Arg.Unit f, " turn off automated refcount management"
+;;
+
+let mk_drop_specialization f =
+  "-drop-specialization", Arg.Unit f, " turn on drop specialization"
+;;
+
+let mk_dparc f =
+  "-dparc", Arg.Unit f, " dump Lambda form after automated reference counting pass"
+;;
+
+let mk_dparc_trace f =
+  "-dparc-trace", Arg.Unit f, " dump trace of parc algorithm execution"
+;;
+
+let mk_dparc_opt_trace f =
+  "-dparc-opt-trace", Arg.Unit f, " dump trace of parc optimization passes"
+;;
+
+let mk_reuse_token_insertion f =
+  "-reuse-token-insertion", Arg.Unit f, " insert reuse tokens after parc"
+;;
+
+let mk_reuse_specialization f =
+  "-reuse-specialization", Arg.Unit f, " turn on reuse specialization"
+;;
+
+
 let mk_opaque f =
   "-opaque", Arg.Unit f,
   " Does not generate cross-module optimization information\n\
@@ -1119,6 +1148,14 @@ module type Optcommon_options = sig
   val _dlinear :  unit -> unit
   val _dinterval : unit -> unit
   val _dstartup :  unit -> unit
+
+  val _automated_refcounting : unit -> unit
+  val _drop_specialization : unit -> unit
+  val _dparc : unit -> unit
+  val _dparc_trace : unit -> unit
+  val _dparc_opt_trace : unit -> unit
+  val _reuse_token_insertion : unit -> unit
+  val _reuse_specialization : unit -> unit
 end;;
 
 module type Optcomp_options = sig
@@ -1495,6 +1532,14 @@ struct
     mk_dump_dir F._dump_dir;
     mk_dump_pass F._dump_pass;
 
+    mk_automated_refcounting F._automated_refcounting;
+    mk_drop_specialization F._drop_specialization;
+    mk_dparc F._dparc;
+    mk_dparc_trace F._dparc_trace;
+    mk_dparc_opt_trace F._dparc_opt_trace;
+    mk_reuse_token_insertion F._reuse_token_insertion;
+    mk_reuse_specialization F._reuse_specialization;
+
     mk_args F._args;
     mk_args0 F._args0;
   ]
@@ -1599,6 +1644,14 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dstartup F._dstartup;
     mk_dump_pass F._dump_pass;
     mk_eval F._eval;
+
+    mk_automated_refcounting F._automated_refcounting;
+    mk_drop_specialization F._drop_specialization;
+    mk_dparc F._dparc;
+    mk_dparc_trace F._dparc_trace;
+    mk_dparc_opt_trace F._dparc_opt_trace;
+    mk_reuse_token_insertion F._reuse_token_insertion;
+    mk_reuse_specialization F._reuse_specialization;
   ]
 end;;
 
@@ -1787,6 +1840,13 @@ module Default = struct
     let _dsplit = set dump_split
     let _dstartup = set keep_startup_file
     let _dump_pass pass = set_dumped_pass pass true
+    let _automated_refcounting = set automated_refcounting
+    let _drop_specialization = set drop_specialization
+    let _dparc = set dump_parc
+    let _dparc_trace = set dump_parc_trace
+    let _dparc_opt_trace = set dump_parc_opt_trace
+    let _reuse_token_insertion = set reuse_token_insertion
+    let _reuse_specialization = set reuse_specialization
     let _inline spec =
       Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
         inline_threshold

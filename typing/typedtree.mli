@@ -798,6 +798,8 @@ type pattern_transformation =
   { f : 'k . 'k general_pattern -> 'k general_pattern }
 val shallow_map_pattern_desc:
     pattern_transformation -> 'k pattern_desc -> 'k pattern_desc
+val shallow_map_value_pattern_desc :
+    (value general_pattern -> value general_pattern) -> value pattern_desc -> value pattern_desc
 
 val iter_general_pattern: pattern_action -> 'k general_pattern -> unit
 val iter_pattern: (pattern -> unit) -> pattern -> unit

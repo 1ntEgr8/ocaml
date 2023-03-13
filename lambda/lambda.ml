@@ -302,6 +302,14 @@ type lambda =
   | Lsend of meth_kind * lambda * lambda * lambda list * scoped_location
   | Levent of lambda * lambda_event
   | Lifused of Ident.t * lambda
+  | Lmarker of marker_info * lambda
+
+and marker_info =
+  | Match_begin of Ident.t
+  | Matched_body of Typedtree.pattern
+  | Reuse of reuse_info
+
+and reuse_info = Ident.t
 
 and lfunction =
   { kind: function_kind;
@@ -443,6 +451,7 @@ let make_key e =
     | Lsend (m,e1,e2,es,_loc) ->
         Lsend (m,tr_rec env e1,tr_rec env e2,tr_recs env es,Loc_unknown)
     | Lifused (id,e) -> Lifused (id,tr_rec env e)
+    | Lmarker (m, e) -> Lmarker (m, tr_rec env e)
     | Lletrec _|Lfunction _
     | Lfor _ | Lwhile _
 (* Beware: (PR#6412) the event argument to Levent
@@ -541,6 +550,8 @@ let shallow_iter ~tail ~non_tail:f = function
       tail e
   | Lifused (_v, e) ->
       tail e
+  | Lmarker (_m, e) ->
+      tail e
 
 let iter_head_constructor f l =
   shallow_iter ~tail:f ~non_tail:f l
@@ -619,6 +630,8 @@ let rec free_variables = function
       free_variables lam
   | Lifused (_v, e) ->
       (* Shouldn't v be considered a free variable ? *)
+      free_variables e
+  | Lmarker (_m, e) ->
       free_variables e
 
 and free_variables_list set exprs =
@@ -817,6 +830,9 @@ let subst update_env ?(freshen_bound_variables = false) s input_lam =
     | Lifused (id, e) ->
         let id = try Ident.Map.find id l with Not_found -> id in
         Lifused (id, subst s l e)
+    | Lmarker (m, e) ->
+        (* TODO(1ntEgr8): may need to perform substitution on marker_info *)
+        Lmarker (m, subst s l e)
   and subst_list s l li = List.map (subst s l) li
   and subst_decl s l (id, exp) = (id, subst s l exp)
   and subst_case s l (key, case) = (key, subst s l case)
@@ -903,6 +919,8 @@ let shallow_map f = function
       Levent (f l, ev)
   | Lifused (v, e) ->
       Lifused (v, f e)
+  | Lmarker (m, e) ->
+      Lmarker (m, f e)
 
 let map f =
   let rec g lam = f (shallow_map g lam) in
@@ -997,3 +1015,7 @@ let find_exact_application kind ~arity args =
 
 let reset () =
   raise_count := 0
+
+(* [cstr] must be of the form:
+    Lprim (Pmakeblock (..), args, loc) *)
+let alloc_at ru_info cstr = Lmarker (Reuse ru_info, cstr)

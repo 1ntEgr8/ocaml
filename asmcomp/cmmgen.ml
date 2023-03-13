@@ -681,6 +681,8 @@ let rec transl env e =
   | Uunreachable ->
       let dbg = Debuginfo.none in
       Cop(Cload (Word_int, Mutable), [Cconst_int (0, dbg)], dbg)
+  | Umarker (_m, exp) ->
+      transl env exp
 
 and transl_catch env nfail ids body handler dbg =
   let ids = List.map (fun (id, kind) -> (id, kind, ref No_result)) ids in

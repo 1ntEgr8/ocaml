@@ -114,6 +114,7 @@ let record_rep ppf r =
   | Record_extension path -> fprintf ppf "ext(%a)" Printtyp.path path
 ;;
 
+
 let block_shape ppf shape = match shape with
   | None | Some [] -> ()
   | Some l when List.for_all ((=) Pgenval) l -> ()
@@ -665,6 +666,15 @@ let rec lam ppf = function
       end
   | Lifused(id, expr) ->
       fprintf ppf "@[<2>(ifused@ %a@ %a)@]" Ident.print id lam expr
+  | Lmarker (m, expr) ->
+      fprintf ppf "@[<2>(marker@ [%a]@ %a)@]" marker m lam expr
+
+and marker ppf = function
+  | Match_begin x -> fprintf ppf "@[<2>match_begin@ <%a>@]" Ident.print x
+  | Matched_body pat ->
+      fprintf ppf "@[<2>matched_body@ <%a>@]" Printpat.pretty pat
+  | Reuse _ ->
+      fprintf ppf "reuse"
 
 and sequence ppf = function
   | Lsequence(l1, l2) ->

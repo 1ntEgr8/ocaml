@@ -463,6 +463,8 @@ val print_if :
   Format.formatter -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
 
+val map_if : bool -> ('a -> 'a) -> 'a -> 'a
+
 
 type filepath = string
 type modname = string

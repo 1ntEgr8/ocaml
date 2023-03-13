@@ -230,6 +230,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_debuginfo dbg
     | Uunreachable ->
       ()
+    | Umarker (_m, expr) -> loop ~depth expr
   in
   loop ~depth:0 clam;
   let linear_let_bound_vars, used_let_bound_vars, assigned =
@@ -446,6 +447,7 @@ let let_bound_vars_that_can_be_moved var_info (clam : Clambda.ulambda) =
       ignore_debuginfo dbg
     | Uunreachable ->
       let_stack := []
+    | Umarker (_m, expr) -> loop expr
   in
   loop clam;
   !can_move
@@ -589,6 +591,9 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
     Usend (kind, e1, e2, args, dbg)
   | Uunreachable ->
     Uunreachable
+  | Umarker (m, e) ->
+      (* TODO(1ntEgr8): substitute in marker_info ? *)
+      Umarker (m, substitute_let_moveable is_let_moveable env e)
 
 and substitute_let_moveable_list is_let_moveable env clams =
   List.map (substitute_let_moveable is_let_moveable env) clams
@@ -813,6 +818,7 @@ let rec un_anf_and_moveable var_info env (clam : Clambda.ulambda)
     Usend (kind, e1, e2, args, dbg), Fixed
   | Uunreachable ->
     Uunreachable, Fixed
+  | Umarker (_m, e) -> un_anf_and_moveable var_info env e
 
 and un_anf var_info env clam : Clambda.ulambda =
   let clam, _moveable = un_anf_and_moveable var_info env clam in

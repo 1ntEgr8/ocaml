@@ -223,6 +223,14 @@ module type Optcommon_options = sig
   val _dlinear :  unit -> unit
   val _dinterval : unit -> unit
   val _dstartup :  unit -> unit
+
+  val _automated_refcounting : unit -> unit
+  val _drop_specialization: unit -> unit
+  val _dparc : unit -> unit
+  val _dparc_trace : unit -> unit
+  val _dparc_opt_trace : unit -> unit
+  val _reuse_token_insertion : unit -> unit
+  val _reuse_specialization : unit -> unit
 end;;
 
 module type Optcomp_options = sig

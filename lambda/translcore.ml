@@ -1074,10 +1074,63 @@ and transl_match ~scopes e arg pat_expr_list partial =
         (pe, static_raise ids) :: exn_cases,
         (lbl, ids_kinds, rhs) :: static_handlers
   in
+  
   let val_cases, exn_cases, static_handlers =
     let x, y, z = List.fold_left rewrite_case ([], [], []) pat_expr_list in
     List.rev x, List.rev y, List.rev z
   in
+  
+  (* Parc-related transformations *)
+
+
+  let val_cases =
+    if !Clflags.automated_refcounting then
+      (* Name each sub-pattern *)
+      let name_pattern (pat, rhs) =
+        let rec helper
+          : value general_pattern -> value general_pattern
+        = fun pat ->
+          match pat.pat_desc with
+          | Tpat_alias _ | Tpat_var _ -> pat
+          | _ ->
+              let id = Ident.create_local "*parc*" in
+              let subpat =
+                { pat with
+                  pat_desc= shallow_map_value_pattern_desc helper pat.pat_desc
+                }
+              in
+              {
+                pat_desc= Tpat_alias (subpat, id, Location.mknoloc "") ;
+                pat_loc= pat.pat_loc ;
+                pat_extra= [] ;
+                pat_type= pat.pat_type ;
+                pat_env=
+                  Env.add_value
+                    id
+                    {
+                      val_type= pat.pat_type;
+                      val_kind= Val_reg ;
+                      Types.val_loc= pat.pat_loc ;
+                      val_attributes= [] ;
+                      val_uid= Uid.mk ~current_unit:(Env.get_unit_name())
+                    }
+                    pat.pat_env
+                ;
+                pat_attributes= []
+              }
+        in
+        (helper pat, rhs)
+      in
+      (* Wrap each case body with the Matched_body marker *)
+      let wrap_marker (pat, rhs) =
+        (pat, Lmarker (Matched_body pat, rhs))
+      in
+      List.map name_pattern val_cases
+      |> List.map wrap_marker
+    else
+      val_cases
+  in
+  
   (* In presence of exception patterns, the code we generate for
 
        match <scrutinees> with
@@ -1134,9 +1187,29 @@ and transl_match ~scopes e arg pat_expr_list partial =
           (Matching.for_function ~scopes e.exp_loc
              None (Lvar val_id) val_cases partial)
   in
-  List.fold_left (fun body (static_exception_id, val_ids, handler) ->
+  let body = List.fold_left (fun body (static_exception_id, val_ids, handler) ->
     Lstaticcatch (body, (static_exception_id, val_ids), handler)
   ) classic static_handlers
+  in
+  (* Wrap entire match statement with a marker *)
+  if !Clflags.automated_refcounting then begin
+    let id = 
+      (* Little verbose, but hey, it works! Should refactor this *)
+      match arg.exp_desc with
+      | Texp_ident _ -> 
+          let e' = transl_exp ~scopes arg in
+          (match e' with
+          | Lvar id | Lmutvar id -> id
+          | _ ->
+              Format.printf "match-wrapping: not normalized after translation" ;
+              raise Parc.ParcError)
+      | _ -> 
+          Format.printf "match-wrapping: not normalized before translation\n" ;
+          raise Parc.ParcError
+    in
+      Lmarker(Match_begin id, body)
+  end else
+    body
 
 and transl_letop ~scopes loc env let_ ands param case partial =
   let rec loop prev_lam = function

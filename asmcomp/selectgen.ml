@@ -554,9 +554,11 @@ method select_condition = function
       (Ifloattest cmp, Ctuple args)
   | Cop(Cand, [arg; Cconst_int (1, _)], _) ->
       (Ioddtest, arg)
+  (*
   | Cop(Cextcall("caml_rc_is_unique", _ty_res, _ty_args, _alloc), [arg], _) ->
       (* (Iinttest_imm(Iunsigned(Ceq),0), Cop(Cextcall("caml_rc_refcount", ty_res, ty_args, alloc), arg, x)) *)
       (Iuniquetest(true), arg)
+  *)
   | arg ->
       (Itruetest, arg)
 
