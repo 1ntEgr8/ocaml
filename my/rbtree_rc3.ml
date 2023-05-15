@@ -93,12 +93,36 @@ match n with
   ru := NULL;
   if unique n then (if unique nl then ru := &nl; else dup l; dup r1; decr nl); free n else dup l; dup r; dup r2; decr n
 *)
+  (*
+  rc_address : 'a   -> rc_reuse
+  rc_null    : unit -> rc_reuse
   
+  *)  
+
   if (rc_is_unique n)  then rc_free n else begin rc_dup nl; rc_dup r2; rc_decr n end;  
-  if (rc_is_unique nl) then rc_free nl else begin rc_dup l; rc_dup r1; rc_decr nl end;
+  let ru2 = if (rc_is_unique nl) then rc_address(nl) else begin rc_dup l; rc_dup r1; rc_decr nl; rc_null() end;
   
   (* rc_drop_ptr n; *)
-  Node (Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
+  if rc_is_null(ru2) then as_is else 
+    
+  obj = pmake_block 6 ...
+  
+
+  Node(Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
+
+  ==>
+  
+  Lprim (make_block <tag> <shape>)   (Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
+  ~>
+  Lprim (reuse_block ru2 <tag> <shape>)   (rc_noassign(Red), Node (Black, t, kv, vv, l), rc_noassign(kx), vx, Node (Black, r1, ky, vy, r2))
+
+  ~>
+
+  obj := (if ru2==NULL then alloc(5) else ru2)
+  obj.1 := ...
+  ...
+  obj.N := ...
+
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
   let r  = rc_copy r in
   let nr = rc_copy nr in
