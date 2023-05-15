@@ -60,8 +60,35 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n)  then rc_free n else begin rc_dup nl; rc_dup r2; rc_decr n end;
+
+(*
+  dup nl
+  dup r2
+  drop n
+
+  dup nl.l
+  dup nl.r1 
+  drop nl
+~>
+
+  if unique n  then free n else dup nl; dup r2; decr n
+  if unique nl then free nl else dup l; dup r1; decr nl
+
+
+  dup r2
+  dup nl.l
+  dup nl.r1 
+  drop n
+
+  if unique n  then dup l; dup r1; drop nl; free n else dup l; dup r; dup r2; decr n
+~> 
+  ru := NULL;
+  if unique n then (if unique nl then ru := &nl; else dup l; dup r1; decr nl); free n else dup l; dup r; dup r2; decr n
+*)
+  
+  if (rc_is_unique n)  then rc_free n else begin rc_dup nl; rc_dup r2; rc_decr n end;  
   if (rc_is_unique nl) then rc_free nl else begin rc_dup l; rc_dup r1; rc_decr nl end;
+  
   (* rc_drop_ptr n; *)
   Node (Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
