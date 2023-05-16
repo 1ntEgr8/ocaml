@@ -707,7 +707,12 @@ let emit_instr env fallthrough i =
         let idx = 8 + n in        
         if (reuse) then begin
           let reuse_reg = arg64 i 0 in
-          I.test (Reg64 reuse_reg) (Reg64 reuse_reg);
+          I.test (Reg64 reuse_reg) (Reg64 reuse_reg); 
+          if (reuse_reg <> res_reg) then begin 
+            I.mov  (Reg64 reuse_reg) (Reg64 res_reg)
+          end;
+          I.jne  (label lbl_alloc_end);          
+          (*
           if (reuse_reg <> res_reg) then begin 
             let lbl_alloc_start = new_label() in
             I.je   (label lbl_alloc_start);
@@ -718,6 +723,7 @@ let emit_instr env fallthrough i =
           else begin
             I.jne  (label lbl_alloc_end);            
           end;
+          *)
         end;          
         (* todo: this goes wrong if res_reg is R11 or R10 *)
         if(res_reg == R11 && res_reg == R10) then Printf.printf("\nemit.mlp:Lop(Ialloc): register allocation conflict!\n\n");
@@ -742,6 +748,7 @@ let emit_instr env fallthrough i =
       I.mov (mem64 DWORD (-4) (arg64 i 0)) (Reg64 (res64 i 0))
       
   | Lop(Iisunique) ->
+      (* this should not really happen as it is converted to a Iisuniquetest usually *)
       let isu_reg = arg64 i 0 in
       let out_reg = res64 i 0 in
       let lbl_isu_end = new_label() in
@@ -758,7 +765,7 @@ let emit_instr env fallthrough i =
       
   | Lop(Idecrnull) ->
       let decr_reg = arg64 i 0 in
-      let res_reg = res64 i 0 in  (* always NULL *)
+      let res_reg = res64 i 0 in  (* return NULL *)
       I.dec  (mem64 DWORD (-4) decr_reg);
       I.xor  (Reg64 res_reg) (Reg64 res_reg)
   
