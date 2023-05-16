@@ -20,8 +20,7 @@ let rec sum_acc xs acc =
       let x = rc_copy x in 
       let xx = rc_copy xx in
       (* rc_dup x; *)
-      rc_dup xx;
-      rc_ptr_drop xs;  
+      if (rc_ptr_is_unique xs) then rc_ptr_free xs else begin (* rc_dup x; *) rc_dup xx; rc_ptr_decr xs end;
       sum_acc xx (x + acc)
   | [] -> 
       rc_drop xs;
