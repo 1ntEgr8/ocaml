@@ -6,8 +6,8 @@ let rec map xs f =
   | x' :: xx' ->
       let x  = rc_copy x' in
       let xx = rc_copy xx' in
-      let ru = if (rc_is_unique xs) then rc_reuse_addr xs else begin rc_dup x; rc_dup xx; rc_decr xs; rc_reuse_null (); end in
-      let y  = (rc_dup_copy_ptr f) x in
+      let ru = if (rc_ptr_is_unique xs) then rc_ptr_reuse xs else begin rc_dup x; rc_dup xx; rc_ptr_decr_null xs end in
+      let y  = (rc_ptr_dup_copy f) x in
       rc_reuse_at ru (y :: (map xx f))
   | [] ->
       rc_drop xs;
@@ -21,7 +21,7 @@ let rec sum_acc xs acc =
       let xx = rc_copy xx in
       (* rc_dup x; *)
       rc_dup xx;
-      rc_drop_ptr xs;  
+      rc_ptr_drop xs;  
       sum_acc xx (x + acc)
   | [] -> 
       rc_drop xs;

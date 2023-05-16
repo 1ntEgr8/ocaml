@@ -31,9 +31,9 @@ void* rc_alloc(mlsize_t num_bytes) {
   return res;
 }
 
-void rc_free( value v ) {
+void rc_ptr_free( value v ) {
   assert(Is_block(v));
-  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_free: not a block!\n");
+  // if rc_unlikely(!Is_block(v)) printf("refcnt.c: rc_ptr_free: not a block!\n");
   mi_free(Hp_val(v));
 }
 

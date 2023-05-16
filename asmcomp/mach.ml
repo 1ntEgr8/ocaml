@@ -69,6 +69,7 @@ type operation =
   | Irefcount
   | Iisunique
   | Idecr
+  | Idecrnull
   | Ifree of { check_null : bool; }
 
 type instruction =

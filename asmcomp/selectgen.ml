@@ -323,7 +323,10 @@ method is_simple_expr = function
   | Cop(op, args, _) ->
       begin match op with
         (* pure externals *)
-      | Cextcall("caml_rc_is_unique", _, _, _) -> List.for_all self#is_simple_expr args
+      | Cextcall("caml_rc_ptr_is_unique", _, _, _) -> begin
+          print_string "simple is_unique\n";
+          List.for_all self#is_simple_expr args
+      end
       | Cextcall(_, _, _, _) -> false
         (* The following may have side effects *)
       | Capply _  | Calloc | Cstore _ | Craise _ | Copaque -> false
@@ -365,7 +368,7 @@ method effects_of exp =
   | Cop (op, args, _) ->
     let from_op =
       match op with
-      | Cextcall("caml_rc_is_unique", _, _, _) -> EC.none
+      | Cextcall("caml_rc_ptr_is_unique", _, _, _) -> EC.none
       | Capply _ | Cextcall _ | Copaque -> EC.arbitrary
       | Calloc -> EC.none
       | Cstore _ -> EC.effect_only Effect.Arbitrary
@@ -453,14 +456,15 @@ method select_operation op args _dbg =
     | "caml_rc_drop" -> Idrop{is_ptr=false}, args
     | "caml_rc_drop_clos" -> Icopy, args               (* generated for closures -- disable for now until perceus works *)
     | "caml_rc_dup_copy" -> Idupcopy{is_ptr=false}, args
-    | "caml_rc_dup_ptr"  -> Idup{is_ptr=true}, args
-    | "caml_rc_drop_ptr" -> Idrop{is_ptr=true}, args
-    | "caml_rc_dup_copy_ptr" -> Idupcopy{is_ptr=true}, args
+    | "caml_rc_ptr_dup"  -> Idup{is_ptr=true}, args
+    | "caml_rc_ptr_drop" -> Idrop{is_ptr=true}, args
+    | "caml_rc_ptr_dup_copy" -> Idupcopy{is_ptr=true}, args
     | "caml_rc_refcount"  -> Irefcount, args
-    | "caml_rc_is_unique" -> Iisunique, args
-    | "caml_rc_decr" -> Idrop{is_ptr=true}, args  (* TODO: Idecr, args *)  
+    | "caml_rc_ptr_is_unique" -> Iisunique, args
+    | "caml_rc_ptr_decr" -> Idecr, args (* Idrop{is_ptr=true}, args *)
+    | "caml_rc_ptr_decr_null" -> Idecrnull, args (* Idrop{is_ptr=true}, args *)
     | "caml_rc_reuse_drop" -> Ifree{check_null=true}, args
-    | "caml_rc_free" -> Ifree{check_null=false}, args 
+    | "caml_rc_ptr_free" -> Ifree{check_null=false}, args 
     | "caml_rc_reuse_null" -> Iconst_int(Nativeint.of_int(0)), args   (* TODO: assumes sizeof(native int) == sizeof( void* ) *)
     | "caml_rc_reuse_at" -> Icopy, List.tl args
     | _ -> Iextcall { func; ty_res; ty_args; alloc; }, args)
@@ -557,11 +561,9 @@ method select_condition = function
       (Ifloattest cmp, Ctuple args)
   | Cop(Cand, [arg; Cconst_int (1, _)], _) ->
       (Ioddtest, arg)
-  (*
-  | Cop(Cextcall("caml_rc_is_unique", _ty_res, _ty_args, _alloc), [arg], _) ->
+  | Cop(Cextcall("caml_rc_ptr_is_unique", _ty_res, _ty_args, _alloc), [arg], _) ->
       (* (Iinttest_imm(Iunsigned(Ceq),0), Cop(Cextcall("caml_rc_refcount", ty_res, ty_args, alloc), arg, x)) *)
       (Iuniquetest(true), arg)
-  *)
   | arg ->
       (Itruetest, arg)
 
@@ -711,6 +713,7 @@ method emit_expr (env:environment) exp =
          let rs = self#emit_tuple env simple_args in
          Some (self#insert_op_debug env Iopaque dbg rs rs)
       end
+    (* rc_reuse_at(ru,<con>) can only be used directly on a allocation of <con> *)
   | Cop(Cextcall("caml_rc_reuse_at", _ty_res, _ty_args, _alloc),[ru;Cop(Calloc,cargs,cdbg)],_dbg) ->
       begin 
         match self#emit_parts_list env cargs with

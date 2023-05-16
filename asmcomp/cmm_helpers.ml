@@ -561,7 +561,7 @@ let test_bool dbg cmm =
         Cconst_int (0, dbg)
       else
         Cconst_int (1, dbg)
-  | Cop(Cextcall("caml_rc_is_unique", _ty_res, _ty_args, _alloc),_arg,_) -> 
+  | Cop(Cextcall("caml_rc_ptr_is_unique", _ty_res, _ty_args, _alloc),_arg,_) -> 
       (* Printf.printf "rc is unique test"; *)
       (* Cop(Ccmpi Ceq, [Cop(Cextcall("caml_rc_refcount", ty_res, ty_args, alloc),arg,dbg); Cconst_int (0, dbg)], dbg) *)
       (* keep as is, and later in selectgen.ml we transform it into a Iuniquetest for efficiency *)

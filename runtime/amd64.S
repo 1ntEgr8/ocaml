@@ -520,7 +520,7 @@ FUNCTION(G(caml_rc_asm_free))
 CFI_STARTPROC
     ENTER_C_FUNCTION
     movq    %r11, C_ARG_1
-    MAKE_C_CALL(rc_free)
+    MAKE_C_CALL(rc_ptr_free)
     LEAVE_C_FUNCTION
     ret
 CFI_ENDPROC

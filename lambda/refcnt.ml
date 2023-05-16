@@ -5,12 +5,12 @@ open Lshape
 
 let dup_copy_native_name  = "caml_rc_dup_copy"
 let dup_checked_native_name = "caml_rc_dup"
-let dup_ptr_native_name = "caml_rc_dup_ptr"
+let dup_ptr_native_name = "caml_rc_ptr_dup"
 let drop_checked_native_name = "caml_rc_drop"
-let drop_ptr_native_name = "caml_rc_drop_ptr"
-let decr_native_name = "caml_rc_decr"
-let free_native_name = "caml_rc_free"
-let is_unique_native_name = "caml_rc_is_unique"
+let drop_ptr_native_name = "caml_rc_ptr_drop"
+let decr_native_name = "caml_rc_ptr_decr"
+let free_native_name = "caml_rc_ptr_free"
+let is_unique_native_name = "caml_rc_ptr_is_unique"
 let get_refcount = "caml_obj_get_refcount"
 
 (* Phantom refcounting primitives

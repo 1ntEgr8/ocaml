@@ -190,11 +190,18 @@ let linear i n contains_calls =
             copy_instr (Lcondbranch(invert_test test, lbl_end)) i
                        (linear ifso n2)
         | _, _, _ ->
-          (* Should attempt branch prediction here *)
-            let (lbl_end, n2) = get_label n1 in
-            let (lbl_else, nelse) = get_label (linear ifnot n2) in
-            copy_instr (Lcondbranch(invert_test test, lbl_else)) i
-              (linear ifso (add_branch lbl_end nelse))
+          match test with
+            Iuniquetest(_) -> 
+              let (lbl_end, n2) = get_label n1 in
+              let (lbl_then, nthen) = get_label (linear ifso n2) in
+              copy_instr (Lcondbranch(test, lbl_then)) i
+                (linear ifnot (add_branch lbl_end nthen))  (* todo: can we move this to a "slow" path at the end of the code? *)
+          | _ -> 
+            (* Should attempt branch prediction here *)
+              let (lbl_end, n2) = get_label n1 in
+              let (lbl_else, nelse) = get_label (linear ifnot n2) in
+              copy_instr (Lcondbranch(invert_test test, lbl_else)) i
+                (linear ifso (add_branch lbl_end nelse))
         end
     | Iswitch(index, cases) ->
         let lbl_cases = Array.make (Array.length cases) 0 in

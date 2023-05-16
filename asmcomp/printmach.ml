@@ -164,6 +164,7 @@ let operation op arg ppf res =
   | Irefcount -> fprintf ppf "refcount " 
   | Iisunique -> fprintf ppf "isunique " 
   | Idecr -> fprintf ppf "decr " 
+  | Idecrnull -> fprintf ppf "decrnull " 
   | Ifree _ -> fprintf ppf "free " 
 
 let rec instr ppf i =

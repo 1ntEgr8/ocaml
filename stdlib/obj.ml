@@ -56,19 +56,19 @@ external rc_dup_copy    : 'a -> 'a   = "caml_rc_dup_copy"
 external rc_dup         : 'a -> unit = "caml_rc_dup"
 external rc_drop        : 'a -> unit = "caml_rc_drop"
 
-external rc_dup_copy_ptr: 'a -> 'a   = "caml_rc_dup_copy_ptr"
-external rc_dup_ptr     : 'a -> unit = "caml_rc_dup_ptr"
-external rc_drop_ptr    : 'a -> unit = "caml_rc_drop_ptr"
+external rc_ptr_dup_copy: 'a -> 'a   = "caml_rc_ptr_dup_copy"
+external rc_ptr_dup     : 'a -> unit = "caml_rc_ptr_dup"
+external rc_ptr_drop    : 'a -> unit = "caml_rc_ptr_drop"
 
-external rc_decr        : 'a -> unit = "caml_rc_decr"
-external rc_free        : 'a -> unit = "caml_rc_free"
-external rc_is_unique   : 'a -> bool = "caml_rc_is_unique" [@@noalloc]
+external rc_ptr_decr        : 'a -> unit = "caml_rc_ptr_decr"
+external rc_ptr_free        : 'a -> unit = "caml_rc_ptr_free"
+external rc_ptr_is_unique   : 'a -> bool = "caml_rc_ptr_is_unique" [@@noalloc]
 
-external rc_reuse_addr  : 'a -> t       = "%identity"
+external rc_ptr_reuse  : 'a -> t       = "%identity"
 external rc_reuse_null  : unit -> t     = "caml_rc_reuse_null"
 external rc_reuse_at    : t -> 'a -> 'a = "caml_rc_reuse_at"      
 external rc_reuse_drop  : t -> unit     = "caml_rc_reuse_drop"      
-
+external rc_ptr_decr_null  : 'a -> t       = "caml_rc_ptr_decr_null"
 
 let first_non_constant_constructor_tag = 0
 let last_non_constant_constructor_tag = 245

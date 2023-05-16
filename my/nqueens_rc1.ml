@@ -28,7 +28,7 @@ let rec extend queen acc xss =
       let rest = rc_copy rest in
       rc_dup xs;
       rc_dup rest;
-      rc_drop_ptr xss;
+      rc_ptr_drop xss;
       extend queen (append_safe queen xs acc) rest
     end
   | [] -> acc;;
@@ -43,7 +43,7 @@ let rec len_acc xs n =
   | _ :: xx -> begin
       let xx = rc_copy xx in
       rc_dup xx;
-      rc_drop_ptr xs;
+      rc_ptr_drop xs;
       len_acc xx (n+1)
     end
   | [] -> n;;

@@ -318,15 +318,15 @@ CAMLprim value caml_rc_dup_copy(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_dup_ptr(value obj) {
+CAMLprim value caml_rc_ptr_dup(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_drop_ptr(value obj) {
+CAMLprim value caml_rc_ptr_drop(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_dup_copy_ptr(value obj) {
+CAMLprim value caml_rc_ptr_dup_copy(value obj) {
   return obj;
 }
 
@@ -334,15 +334,15 @@ CAMLprim value caml_rc_refcount(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_is_unique(value obj) {
+CAMLprim value caml_rc_ptr_is_unique(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_free(value obj) {
+CAMLprim value caml_rc_ptr_free(value obj) {
   return obj;
 }
 
-CAMLprim value caml_rc_decr(value obj) {
+CAMLprim value caml_rc_ptr_decr(value obj) {
   return obj;
 }
 
@@ -353,7 +353,11 @@ CAMLprim value caml_rc_reuse_null(void) {
 CAMLprim value caml_rc_reuse_at(value ru, value obj) {
   return obj;
 }
+
+CAMLprim value caml_rc_reuse_drop(value obj) {
+  return obj;
+}
  
-CAMLprim value caml_rc_reuse_drop(value ru) {
-  return ru;
+CAMLprim value caml_rc_ptr_decr_null(value obj) {
+  return 0;
 }

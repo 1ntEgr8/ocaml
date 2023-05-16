@@ -22,9 +22,9 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup nl; rc_dup r2; rc_decr n; rc_reuse_null () end in
-  let ru_nl = if (rc_is_unique nl) then rc_reuse_addr nl else begin rc_dup l; rc_dup r1; rc_decr nl; rc_reuse_null () end in
-  (* rc_drop_ptr n; *)
+  let ru_n = if (rc_ptr_is_unique n)  then rc_ptr_reuse n else begin rc_dup nl; rc_dup r2; rc_ptr_decr_null n end in
+  let ru_nl = if (rc_ptr_is_unique nl) then rc_ptr_reuse nl else begin rc_dup l; rc_dup r1; rc_ptr_decr_null nl end in
+  (* rc_ptr_drop n; *)
   rc_reuse_at ru_n (Node (Red, rc_reuse_at ru_nl (Node (Black, l, kx, vx, r1)), ky, vy, rc_reuse_at ru (Node (Black, r2, kv, vv, t))))
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
   let r  = rc_copy r in
@@ -35,17 +35,17 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup l1; rc_dup nr; rc_decr n; rc_reuse_null () end in
-  let ru_nr = if (rc_is_unique nr) then rc_reuse_addr nr else begin rc_dup l2; rc_dup r; rc_decr nr; rc_reuse_null () end in
-  (* rc_drop_ptr n; *)
+  let ru_n = if (rc_ptr_is_unique n)  then rc_ptr_reuse n else begin rc_dup l1; rc_dup nr; rc_ptr_decr_null n end in
+  let ru_nr = if (rc_ptr_is_unique nr) then rc_ptr_reuse nr else begin rc_dup l2; rc_dup r; rc_ptr_decr_null nr end in
+  (* rc_ptr_drop n; *)
   rc_reuse_at ru_nr (Node (Red, rc_reuse_at ru_n (Node (Black, l1, ky, vy, l2)), kx, vx, rc_reuse_at ru (Node (Black, r, kv, vv, t))))
 | Node (_, l,  ky, vy, r) -> 
   let r  = rc_copy r in
   let l  = rc_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup r; rc_dup l; rc_decr n; rc_reuse_null () end in
-  (* rc_drop_ptr n; *)
+  let ru_n = if (rc_ptr_is_unique n) then rc_ptr_reuse n else begin rc_dup r; rc_dup l; rc_ptr_decr_null n end in
+  (* rc_ptr_drop n; *)
   rc_reuse_at ru (Node (Black, rc_reuse_at ru_n (Node (Red, l, ky, vy, r)), kv, vv, t))
 | Leaf -> 
     rc_reuse_drop ru;
@@ -62,8 +62,8 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n  = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup nl; rc_dup r2; rc_decr n; rc_reuse_null () end  in
-  let ru_nl = if (rc_is_unique nl) then rc_reuse_addr nl else begin rc_dup l; rc_dup r1; rc_decr nl; rc_reuse_null () end in
+  let ru_n  = if (rc_ptr_is_unique n) then rc_ptr_reuse n else begin rc_dup nl; rc_dup r2; rc_ptr_decr_null n end  in
+  let ru_nl = if (rc_ptr_is_unique nl) then rc_ptr_reuse nl else begin rc_dup l; rc_dup r1; rc_ptr_decr_null nl end in
   rc_reuse_at ru_nl (Node(Red, rc_reuse_at ru (Node (Black, t, kv, vv, l)), kx, vx, rc_reuse_at ru_n (Node (Black, r1, ky, vy, r2))))
 
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
@@ -75,9 +75,9 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup l1; rc_dup nr; rc_decr n; rc_reuse_null () end in
-  let ru_nr = if (rc_is_unique nr) then rc_reuse_addr nr else begin rc_dup l2; rc_dup r; rc_decr nr; rc_reuse_null () end in
-  (* rc_drop_ptr n; *)
+  let ru_n = if (rc_ptr_is_unique n)  then rc_ptr_reuse n else begin rc_dup l1; rc_dup nr; rc_ptr_decr_null n end in
+  let ru_nr = if (rc_ptr_is_unique nr) then rc_ptr_reuse nr else begin rc_dup l2; rc_dup r; rc_ptr_decr_null nr end in
+  (* rc_ptr_drop n; *)
   rc_reuse_at ru_n (Node (Red, rc_reuse_at ru (Node (Black, t, kv, vv, l1)), ky, vy, rc_reuse_at ru_nr (Node (Black, l2, kx, vx, r))))
 
 | Node (_, l, ky, vy, r) -> 
@@ -85,8 +85,8 @@ match n with
   let l  = rc_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru_n = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup r; rc_dup l; rc_decr n; rc_reuse_null () end in
-  (* rc_drop_ptr n; *)
+  let ru_n = if (rc_ptr_is_unique n) then rc_ptr_reuse n else begin rc_dup r; rc_dup l; rc_ptr_decr_null n end in
+  (* rc_ptr_drop n; *)
   rc_reuse_at ru (Node (Black, t, kv, vv, rc_reuse_at ru_n (Node (Red, l, ky, vy, r))))
 
 | Leaf -> 
@@ -107,8 +107,8 @@ match t with
   let b = rc_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru = if (rc_is_unique t) then rc_reuse_addr t 
-                               else begin rc_dup a; rc_dup b; rc_decr t; rc_reuse_null() end in
+  let ru = if (rc_ptr_is_unique t) then rc_ptr_reuse t 
+                               else begin rc_dup a; rc_dup b; rc_ptr_decr_null t end in
   if kx < ky then rc_reuse_at ru (Node (Red, ins a kx vx, ky, vy, b))
   else if ky = kx then rc_reuse_at ru (Node (Red, a, kx, vx, b))
   else rc_reuse_at ru (Node (Red, a, ky, vy, ins b kx vx))
@@ -117,8 +117,8 @@ match t with
   let b = rc_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  let ru = if (rc_is_unique t) then rc_reuse_addr t 
-                               else begin rc_dup a; rc_dup b; rc_decr t; rc_reuse_null() end in
+  let ru = if (rc_ptr_is_unique t) then rc_ptr_reuse t 
+                               else begin rc_dup a; rc_dup b; rc_ptr_decr_null t end in
   if kx < ky then
     (if is_red a then balance1 ru ky vy b (ins a kx vx)
       else rc_reuse_at ru (Node (Black, (ins a kx vx), ky, vy, b)))
@@ -132,8 +132,8 @@ match n with
                           let r = rc_copy r in 
                           let k = rc_copy k in
                           let v = rc_copy v in   
-                          let ru = if (rc_is_unique n) then rc_reuse_addr n 
-                                                       else begin rc_dup l; rc_dup r; rc_decr n; rc_reuse_null() end in
+                          let ru = if (rc_ptr_is_unique n) then rc_ptr_reuse n 
+                                                       else begin rc_dup l; rc_dup r; rc_ptr_decr_null n end in
                           rc_reuse_at ru (Node (Black, l, k, v, r))
 | e                    -> e;;
 
@@ -149,8 +149,8 @@ match n with
   let l = rc_copy l in 
   let k = rc_copy k in
   let v = rc_copy v in 
-  if (rc_is_unique n) then rc_free n
-                      else begin rc_dup l; rc_dup r; rc_decr n end;
+  if (rc_ptr_is_unique n) then rc_ptr_free n
+                      else begin rc_dup l; rc_dup r; rc_ptr_decr n end;
   fold f r (f k v (fold f l d));;
 
 let rec mk_map_aux n m =

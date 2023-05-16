@@ -24,27 +24,27 @@ let rec add n m =
   | (Val i, Val j) -> begin 
       let i = rc_copy i in
       let j = rc_copy j in
-      rc_drop_ptr n;
-      rc_drop_ptr m;
+      rc_ptr_drop n;
+      rc_ptr_drop m;
       Val (i+j)
     end
-  | (Val 0, f)     -> begin rc_drop_ptr n; f end
-  | (f, Val 0)     -> begin rc_drop_ptr m; f end
-  | (f, Val i)     -> begin rc_drop_ptr m; add (Val i) f end
+  | (Val 0, f)     -> begin rc_ptr_drop n; f end
+  | (f, Val 0)     -> begin rc_ptr_drop m; f end
+  | (f, Val i)     -> begin rc_ptr_drop m; add (Val i) f end
   | (Val i, Add((Val j) as v, f)) -> begin
        let i = rc_copy i in
-       rc_drop_ptr n;
+       rc_ptr_drop n;
        let j = rc_copy j in
        let f = rc_copy f in
        rc_dup f;
-       rc_drop_ptr m;
+       rc_ptr_drop m;
        add (Val (i+j)) f
     end
   | (f, Add((Val i) as v, g)) -> begin
       let i = rc_copy i in
       let g = rc_copy g in
       rc_dup g;
-      rc_drop_ptr m;
+      rc_ptr_drop m;
       add (Val i) (add f g)
     end
   | (Add(f, g), h)         -> begin

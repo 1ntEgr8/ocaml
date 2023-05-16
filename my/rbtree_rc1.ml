@@ -22,7 +22,7 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Red, Node (Black, l, kx, vx, r1), ky, vy, Node (Black, r2, kv, vv, t))
 | Node (_, l1, ky, vy, Node (Red, l2, kx, vx, r)) -> 
   let r = rc_dup_copy r in
@@ -32,14 +32,14 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Red, Node (Black, l1, ky, vy, l2), kx, vx, Node (Black, r, kv, vv, t))
 | Node (_, l,  ky, vy, r) -> 
   let r = rc_dup_copy r in
   let l = rc_dup_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Black, Node (Red, l, ky, vy, r), kv, vv, t)
 | Leaf -> Leaf;;
 
@@ -53,7 +53,7 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
 | Node (_, l1, ky, vy, Node (Red, l2, kx, vx, r)) -> 
   let r = rc_dup_copy r in
@@ -63,14 +63,14 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Red, Node (Black, t, kv, vv, l1), ky, vy, Node (Black, l2, kx, vx, r))
 | Node (_, l, ky, vy, r) -> 
   let r = rc_copy r in
   let l = rc_dup_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   Node (Black, t, kv, vv, Node (Red, l, ky, vy, r))
 | Leaf -> Leaf;;
 
@@ -88,7 +88,7 @@ match t with
   let b = rc_dup_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr t; 
+  rc_ptr_drop t; 
   if kx < ky then Node (Red, ins a kx vx, ky, vy, b)
   else if ky = kx then Node (Red, a, kx, vx, b)
   else Node (Red, a, ky, vy, ins b kx vx)
@@ -97,7 +97,7 @@ match t with
   let b = rc_dup_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  rc_drop_ptr t;
+  rc_ptr_drop t;
   if kx < ky then
     (if is_red a then balance1 ky vy b (ins a kx vx)
       else Node (Black, (ins a kx vx), ky, vy, b))
@@ -111,7 +111,7 @@ match n with
                           let r = rc_dup_copy r in 
                           let k = rc_copy k in
                           let v = rc_copy v in   
-                          rc_drop_ptr n;
+                          rc_ptr_drop n;
                           Node (Black, l, k, v, r)
 | e                    -> e;;
 
@@ -127,7 +127,7 @@ match n with
   let l = rc_dup_copy l in 
   (* let k = rc_dup_copy k in
   let v = rc_dup_copy v in *)
-  rc_drop_ptr n;
+  rc_ptr_drop n;
   fold f r (f k v (fold f l d));;
 
 let rec mk_map_aux n m =

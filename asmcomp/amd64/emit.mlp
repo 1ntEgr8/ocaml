@@ -753,8 +753,15 @@ let emit_instr env fallthrough i =
       def_label lbl_isu_end            
 
   | Lop(Idecr) ->
-      Printf.printf("\nemit.mlp:Lop(Idecr): not supported yet; use Idrop(true) instead!\n\n")
-
+      let decr_reg = arg64 i 0 in
+      I.dec  (mem64 DWORD (-4) decr_reg)
+      
+  | Lop(Idecrnull) ->
+      let decr_reg = arg64 i 0 in
+      let res_reg = res64 i 0 in  (* always NULL *)
+      I.dec  (mem64 DWORD (-4) decr_reg);
+      I.xor  (Reg64 res_reg) (Reg64 res_reg)
+  
   | Lop(Ifree{check_null}) ->
       let free_reg = arg64 i 0 in
       let lbl_free_end = new_label() in

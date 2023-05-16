@@ -26,7 +26,7 @@ let rec extend queen acc xss =
   | xs :: rest -> begin 
       let xs = rc_copy xs in
       let rest = rc_copy rest in
-      if (rc_is_unique xss) then rc_free xss else begin rc_dup xs; rc_dup rest; rc_decr xss end;
+      if (rc_ptr_is_unique xss) then rc_ptr_free xss else begin rc_dup xs; rc_dup rest; rc_ptr_decr xss end;
       extend queen (append_safe queen xs acc) rest
     end
   | [] -> acc;;
@@ -40,7 +40,7 @@ let rec len_acc xs n =
   match xs with
   | _ :: xx -> begin
       let xx = rc_copy xx in
-      if (rc_is_unique xs) then rc_free xs else begin rc_dup xx; rc_decr xs end;
+      if (rc_ptr_is_unique xs) then rc_ptr_free xs else begin rc_dup xx; rc_ptr_decr xs end;
       len_acc xx (n+1)
     end
   | [] -> n;;
