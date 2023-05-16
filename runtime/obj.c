@@ -345,3 +345,15 @@ CAMLprim value caml_rc_free(value obj) {
 CAMLprim value caml_rc_decr(value obj) {
   return obj;
 }
+
+CAMLprim value caml_rc_reuse_null(void) {
+  return 0;
+}
+
+CAMLprim value caml_rc_reuse_at(value ru, value obj) {
+  return obj;
+}
+ 
+CAMLprim value caml_rc_reuse_drop(value ru) {
+  return ru;
+}

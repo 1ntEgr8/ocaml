@@ -695,7 +695,7 @@ let emit_instr env fallthrough i =
       (* end *)
       def_label lbl_drop_end      
 
-  | Lop(Ialloc { bytes = n; dbginfo }) ->
+  | Lop(Ialloc { bytes = n; dbginfo; reuse }) ->
       assert (n <= (Config.max_young_wosize + 1) * Arch.size_addr);
       if (n <= 1024) then begin  (* if small enough, inline mimalloc fast path allocation *)
         let n = ((n+7) / 8) * 8 in
@@ -705,6 +705,20 @@ let emit_instr env fallthrough i =
         let slowpath () = emit_mi_alloc_generic lbl_alloc_generic lbl_alloc_end n res_reg in
         env.call_slowpath_sites <- slowpath :: env.call_slowpath_sites;
         let idx = 8 + n in        
+        if (reuse) then begin
+          let reuse_reg = arg64 i 0 in
+          I.test (Reg64 reuse_reg) (Reg64 reuse_reg);
+          if (reuse_reg <> res_reg) then begin 
+            let lbl_alloc_start = new_label() in
+            I.je   (label lbl_alloc_start);
+            I.mov  (Reg64 reuse_reg) (Reg64 res_reg);
+            I.jmp  (label lbl_alloc_end);
+            def_label lbl_alloc_start
+          end 
+          else begin
+            I.jne  (label lbl_alloc_end);            
+          end;
+        end;          
         (* todo: this goes wrong if res_reg is R11 or R10 *)
         if(res_reg == R11 && res_reg == R10) then Printf.printf("\nemit.mlp:Lop(Ialloc): register allocation conflict!\n\n");
         I.mov  (mem64 NONE idx R15) r11;                (* r11 = page = heap->pages_free_direct[n/8] *)
@@ -741,16 +755,23 @@ let emit_instr env fallthrough i =
   | Lop(Idecr) ->
       Printf.printf("\nemit.mlp:Lop(Idecr): not supported yet; use Idrop(true) instead!\n\n")
 
-  | Lop(Ifree) ->
+  | Lop(Ifree{check_null}) ->
       let free_reg = arg64 i 0 in
+      let lbl_free_end = new_label() in
+      if (check_null) then begin
+        I.test (Reg64 free_reg) (Reg64 free_reg);
+        I.je   (label lbl_free_end)
+      end;
       I.lea (mem64 NONE (-8) free_reg) r11; (* mimalloc free: pass pointer to the start of the heap block *)
-      emit_call "caml_rc_asm_mi_free_hp"
+      emit_call "caml_rc_asm_mi_free_hp";
       (*
       I.mov (Reg64 free_reg) r11; 
       emit_call "caml_rc_asm_free"   (* generic free *)
       *)
+      if (check_null) then begin
+        def_label lbl_free_end
+      end
       
-
   (*
   | Lop(Ialloc { bytes = n; dbginfo }) ->
       if env.f.fun_fast then begin

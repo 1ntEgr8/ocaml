@@ -59,7 +59,7 @@ let rec combine i allocstate =
            else instr_cons_debug (Iop(Iintop_imm(Iadd, offset))) i.res
                 i.res i.dbg next
          in
-         (instr_cons_debug (Iop(Ialloc {bytes = totalsz; dbginfo; }))
+         (instr_cons_debug (Iop(Ialloc {bytes = totalsz; dbginfo = dbginfo; reuse = false}))
           i.arg i.res i.dbg next, allocstate)
       end
   | Iop(Icall_ind | Icall_imm _ | Iextcall _ |

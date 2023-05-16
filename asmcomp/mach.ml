@@ -54,7 +54,7 @@ type operation =
   | Istackoffset of int
   | Iload of Cmm.memory_chunk * Arch.addressing_mode * Asttypes.mutable_flag
   | Istore of Cmm.memory_chunk * Arch.addressing_mode * bool
-  | Ialloc of { bytes : int; dbginfo : Debuginfo.alloc_dbginfo; }
+  | Ialloc of { bytes : int; dbginfo : Debuginfo.alloc_dbginfo; reuse : bool }
   | Iintop of integer_operation
   | Iintop_imm of integer_operation * int
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
@@ -69,7 +69,7 @@ type operation =
   | Irefcount
   | Iisunique
   | Idecr
-  | Ifree 
+  | Ifree of { check_null : bool; }
 
 type instruction =
   { desc: instruction_desc;
@@ -159,7 +159,7 @@ let operation_is_pure = function
   | Iextcall _ | Istackoffset _ | Istore _ | Ialloc _ | Ipoll _
   | Iintop(Icheckbound) | Iintop_imm(Icheckbound, _) | Iopaque -> false
   | Ispecific sop -> Arch.operation_is_pure sop
-  | Idup _ | Idrop _ | Icopy | Idupcopy _ | Idecr | Ifree  -> false
+  | Idup _ | Idrop _ | Icopy | Idupcopy _ | Idecr | Ifree _ -> false
   | _ -> true
 
 let operation_can_raise op =

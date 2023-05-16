@@ -11,7 +11,7 @@ type node =
 | Leaf
 | Node of color * node * int * bool * node;;
 
-let balance1 kv vv t n =
+let balance1 ru kv vv t n =
 match n with
 | Node (_, (Node (Red, l, kx, vx, r1) as nl), ky, vy, r2) -> 
   let nl = rc_copy nl in
@@ -22,10 +22,10 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n)  then rc_free n else begin rc_dup nl; rc_dup r2; rc_decr n end;
-  if (rc_is_unique nl) then rc_free nl else begin rc_dup l; rc_dup r1; rc_decr nl end;
+  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup nl; rc_dup r2; rc_decr n; rc_reuse_null () end in
+  let ru_nl = if (rc_is_unique nl) then rc_reuse_addr nl else begin rc_dup l; rc_dup r1; rc_decr nl; rc_reuse_null () end in
   (* rc_drop_ptr n; *)
-  Node (Red, Node (Black, l, kx, vx, r1), ky, vy, Node (Black, r2, kv, vv, t))
+  rc_reuse_at ru_n (Node (Red, rc_reuse_at ru_nl (Node (Black, l, kx, vx, r1)), ky, vy, rc_reuse_at ru (Node (Black, r2, kv, vv, t))))
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
   let r  = rc_copy r in
   let nr = rc_copy nr in
@@ -35,21 +35,23 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n)  then rc_free n else begin rc_dup l1; rc_dup nr; rc_decr n end;
-  if (rc_is_unique nr) then rc_free nr else begin rc_dup l2; rc_dup r; rc_decr nr end;
+  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup l1; rc_dup nr; rc_decr n; rc_reuse_null () end in
+  let ru_nr = if (rc_is_unique nr) then rc_reuse_addr nr else begin rc_dup l2; rc_dup r; rc_decr nr; rc_reuse_null () end in
   (* rc_drop_ptr n; *)
-  Node (Red, Node (Black, l1, ky, vy, l2), kx, vx, Node (Black, r, kv, vv, t))
+  rc_reuse_at ru_nr (Node (Red, rc_reuse_at ru_n (Node (Black, l1, ky, vy, l2)), kx, vx, rc_reuse_at ru (Node (Black, r, kv, vv, t))))
 | Node (_, l,  ky, vy, r) -> 
   let r  = rc_copy r in
   let l  = rc_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n) then rc_free n else begin rc_dup r; rc_dup l; rc_decr n end;
+  let ru_n = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup r; rc_dup l; rc_decr n; rc_reuse_null () end in
   (* rc_drop_ptr n; *)
-  Node (Black, Node (Red, l, ky, vy, r), kv, vv, t)
-| Leaf -> Leaf;;
+  rc_reuse_at ru (Node (Black, rc_reuse_at ru_n (Node (Red, l, ky, vy, r)), kv, vv, t))
+| Leaf -> 
+    rc_reuse_drop ru;
+    Leaf;;
 
-let balance2 t kv vv n =
+let balance2 ru t kv vv n =
 match n with
 | Node (_, (Node (Red, l, kx, vx, r1) as nl), ky, vy, r2)  -> 
   let nl = rc_copy nl in
@@ -60,68 +62,9 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-
-(*
-  dup nl
-  dup r2
-  drop n         --> ru := drop_reuse n -->  ru := (if unique n then &n else {dup nl; dup r2; decr n; NULL })
-
-  dup nl.l
-  dup nl.r1 
-  drop nl
-~>
-
-  dup nl
-  dup r2
-  drop n => if is_unique(n) then drop nl; drop r2; free n else decref n
-
-  ...
-  
-~> (push down & fuse)
-
-  if unique n  then free n else dup nl; dup r2; decr n
-  if unique nl then free nl else dup l; dup r1; decr nl
-
-
-  dup r2
-  dup nl.l
-  dup nl.r1 
-  drop n
-
-  if unique n  then dup l; dup r1; drop nl; free n else dup l; dup r; dup r2; decr n
-~> 
-  ru := NULL;
-  if unique n then (if unique nl then ru := &nl; else dup l; dup r1; decr nl); free n else dup l; dup r; dup r2; decr n
-*)
-  (*
-  rc_address : 'a   -> rc_reuse
-  rc_null    : unit -> rc_reuse
-  
-  *)  
-
-  if (rc_is_unique n)  then rc_free n else begin rc_dup nl; rc_dup r2; rc_decr n end;  
-  let ru2 = if (rc_is_unique nl) then rc_address(nl) else begin rc_dup l; rc_dup r1; rc_decr nl; rc_null() end;
-  
-  (* rc_drop_ptr n; *)
-  if rc_is_null(ru2) then as_is else 
-    
-  obj = pmake_block 6 ...
-  
-
-  Node(Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
-
-  ==>
-  
-  Lprim (make_block <tag> <shape>)   (Red, Node (Black, t, kv, vv, l), kx, vx, Node (Black, r1, ky, vy, r2))
-  ~>
-  Lprim (reuse_block ru2 <tag> <shape>)   (rc_noassign(Red), Node (Black, t, kv, vv, l), rc_noassign(kx), vx, Node (Black, r1, ky, vy, r2))
-
-  ~>
-
-  obj := (if ru2==NULL then alloc(5) else ru2)
-  obj.1 := ...
-  ...
-  obj.N := ...
+  let ru_n  = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup nl; rc_dup r2; rc_decr n; rc_reuse_null () end  in
+  let ru_nl = if (rc_is_unique nl) then rc_reuse_addr nl else begin rc_dup l; rc_dup r1; rc_decr nl; rc_reuse_null () end in
+  rc_reuse_at ru_nl (Node(Red, rc_reuse_at ru (Node (Black, t, kv, vv, l)), kx, vx, rc_reuse_at ru_n (Node (Black, r1, ky, vy, r2))))
 
 | Node (_, l1, ky, vy, (Node (Red, l2, kx, vx, r) as nr)) -> 
   let r  = rc_copy r in
@@ -132,19 +75,23 @@ match n with
   let vx = rc_copy vx in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n)  then rc_free n else begin rc_dup l1; rc_dup nr; rc_decr n end;
-  if (rc_is_unique nr) then rc_free nr else begin rc_dup l2; rc_dup r; rc_decr nr end;
+  let ru_n = if (rc_is_unique n)  then rc_reuse_addr n else begin rc_dup l1; rc_dup nr; rc_decr n; rc_reuse_null () end in
+  let ru_nr = if (rc_is_unique nr) then rc_reuse_addr nr else begin rc_dup l2; rc_dup r; rc_decr nr; rc_reuse_null () end in
   (* rc_drop_ptr n; *)
-  Node (Red, Node (Black, t, kv, vv, l1), ky, vy, Node (Black, l2, kx, vx, r))
+  rc_reuse_at ru_n (Node (Red, rc_reuse_at ru (Node (Black, t, kv, vv, l1)), ky, vy, rc_reuse_at ru_nr (Node (Black, l2, kx, vx, r))))
+
 | Node (_, l, ky, vy, r) -> 
   let r  = rc_copy r in
   let l  = rc_copy l in 
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique n) then rc_free n else begin rc_dup r; rc_dup l; rc_decr n end;
+  let ru_n = if (rc_is_unique n) then rc_reuse_addr n else begin rc_dup r; rc_dup l; rc_decr n; rc_reuse_null () end in
   (* rc_drop_ptr n; *)
-  Node (Black, t, kv, vv, Node (Red, l, ky, vy, r))
-| Leaf -> Leaf;;
+  rc_reuse_at ru (Node (Black, t, kv, vv, rc_reuse_at ru_n (Node (Red, l, ky, vy, r))))
+
+| Leaf -> 
+    rc_reuse_drop ru;
+    Leaf;;  
 
 (* make borrowing *)
 let is_red t =
@@ -160,24 +107,24 @@ match t with
   let b = rc_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique t) then rc_free t 
-                      else begin rc_dup a; rc_dup b; rc_decr t end;
-  if kx < ky then Node (Red, ins a kx vx, ky, vy, b)
-  else if ky = kx then Node (Red, a, kx, vx, b)
-  else Node (Red, a, ky, vy, ins b kx vx)
+  let ru = if (rc_is_unique t) then rc_reuse_addr t 
+                               else begin rc_dup a; rc_dup b; rc_decr t; rc_reuse_null() end in
+  if kx < ky then rc_reuse_at ru (Node (Red, ins a kx vx, ky, vy, b))
+  else if ky = kx then rc_reuse_at ru (Node (Red, a, kx, vx, b))
+  else rc_reuse_at ru (Node (Red, a, ky, vy, ins b kx vx))
 | Node (Black, a, ky, vy, b) ->
   let a = rc_copy a in
   let b = rc_copy b in
   let ky = rc_copy ky in
   let vy = rc_copy vy in 
-  if (rc_is_unique t) then rc_free t 
-                      else begin rc_dup a; rc_dup b; rc_decr t end;
+  let ru = if (rc_is_unique t) then rc_reuse_addr t 
+                               else begin rc_dup a; rc_dup b; rc_decr t; rc_reuse_null() end in
   if kx < ky then
-    (if is_red a then balance1 ky vy b (ins a kx vx)
-      else Node (Black, (ins a kx vx), ky, vy, b))
-  else if kx = ky then Node (Black, a, kx, vx, b)
-  else if is_red b then balance2 a ky vy (ins b kx vx)
-       else Node (Black, a, ky, vy, (ins b kx vx));;
+    (if is_red a then balance1 ru ky vy b (ins a kx vx)
+      else rc_reuse_at ru (Node (Black, (ins a kx vx), ky, vy, b)))
+  else if kx = ky then rc_reuse_at ru (Node (Black, a, kx, vx, b))
+  else if is_red b then balance2 ru a ky vy (ins b kx vx)
+       else rc_reuse_at ru (Node (Black, a, ky, vy, (ins b kx vx)));;
 
 let set_black n =
 match n with
@@ -185,9 +132,9 @@ match n with
                           let r = rc_copy r in 
                           let k = rc_copy k in
                           let v = rc_copy v in   
-                          if (rc_is_unique n) then rc_free n 
-                                              else begin rc_dup l; rc_dup r; rc_decr n end;
-                          Node (Black, l, k, v, r)
+                          let ru = if (rc_is_unique n) then rc_reuse_addr n 
+                                                       else begin rc_dup l; rc_dup r; rc_decr n; rc_reuse_null() end in
+                          rc_reuse_at ru (Node (Black, l, k, v, r))
 | e                    -> e;;
 
 let insert t k v =

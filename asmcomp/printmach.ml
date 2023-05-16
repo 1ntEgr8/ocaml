@@ -164,7 +164,7 @@ let operation op arg ppf res =
   | Irefcount -> fprintf ppf "refcount " 
   | Iisunique -> fprintf ppf "isunique " 
   | Idecr -> fprintf ppf "decr " 
-  | Ifree -> fprintf ppf "free " 
+  | Ifree _ -> fprintf ppf "free " 
 
 let rec instr ppf i =
   if !Clflags.dump_live then begin

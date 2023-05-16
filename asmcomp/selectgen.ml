@@ -459,7 +459,10 @@ method select_operation op args _dbg =
     | "caml_rc_refcount"  -> Irefcount, args
     | "caml_rc_is_unique" -> Iisunique, args
     | "caml_rc_decr" -> Idrop{is_ptr=true}, args  (* TODO: Idecr, args *)  
-    | "caml_rc_free" -> Ifree, args 
+    | "caml_rc_reuse_drop" -> Ifree{check_null=true}, args
+    | "caml_rc_free" -> Ifree{check_null=false}, args 
+    | "caml_rc_reuse_null" -> Iconst_int(Nativeint.of_int(0)), args   (* TODO: assumes sizeof(native int) == sizeof( void* ) *)
+    | "caml_rc_reuse_at" -> Icopy, List.tl args
     | _ -> Iextcall { func; ty_res; ty_args; alloc; }, args)
   | (Cload (chunk, mut), [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in
@@ -479,7 +482,7 @@ method select_operation op args _dbg =
         (Istore(chunk, addr, is_assign), [arg2; eloc])
         (* Inversion addr/datum in Istore *)
       end
-  | (Calloc, _) -> (Ialloc {bytes = 0; dbginfo = []}), args
+  | (Calloc, _) -> (Ialloc {bytes = 0; dbginfo = []; reuse = false}), args
   | (Caddi, _) -> self#select_arith_comm Iadd args
   | (Csubi, _) -> self#select_arith Isub args
   | (Cmuli, _) -> self#select_arith_comm Imul args
@@ -708,6 +711,27 @@ method emit_expr (env:environment) exp =
          let rs = self#emit_tuple env simple_args in
          Some (self#insert_op_debug env Iopaque dbg rs rs)
       end
+  | Cop(Cextcall("caml_rc_reuse_at", _ty_res, _ty_args, _alloc),[ru;Cop(Calloc,cargs,cdbg)],_dbg) ->
+      begin 
+        match self#emit_parts_list env cargs with
+          None -> None
+        | Some(simple_args, env) ->
+            let (new_op, new_args) = self#select_operation Calloc simple_args cdbg in
+            match new_op with
+            | Ialloc { bytes = _; } ->
+              let rd = self#regs_for typ_val in
+              let bytes = size_expr env (Ctuple new_args) in
+              assert (bytes mod Arch.size_addr = 0);
+              let alloc_words = bytes / Arch.size_addr in
+              let op =
+                Ialloc { bytes = bytes; dbginfo = [{alloc_words; alloc_dbg = cdbg}]; reuse = true }
+              in
+              let rs = self#emit_tuple env [ru] in         (* TODO: make simple_ru *) 
+              self#insert_debug env (Iop op) cdbg rs rd;
+              self#emit_stores env new_args rd;
+              Some rd
+           | _op -> Misc.fatal_error ("Selection.emit_expr: illegal rc_reuse_at")
+      end
   | Cop(op, args, dbg) ->
       begin match self#emit_parts_list env args with
         None -> None
@@ -750,7 +774,7 @@ method emit_expr (env:environment) exp =
               assert (bytes mod Arch.size_addr = 0);
               let alloc_words = bytes / Arch.size_addr in
               let op =
-                Ialloc { bytes; dbginfo = [{alloc_words; alloc_dbg = dbg}] }
+                Ialloc { bytes; dbginfo = [{alloc_words; alloc_dbg = dbg}]; reuse = false }
               in
               self#insert_debug env (Iop op) dbg [||] rd;
               self#emit_stores env new_args rd;

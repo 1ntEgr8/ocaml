@@ -64,6 +64,12 @@ external rc_decr        : 'a -> unit = "caml_rc_decr"
 external rc_free        : 'a -> unit = "caml_rc_free"
 external rc_is_unique   : 'a -> bool = "caml_rc_is_unique" [@@noalloc]
 
+external rc_reuse_addr  : 'a -> t       = "%identity"
+external rc_reuse_null  : unit -> t     = "caml_rc_reuse_null"
+external rc_reuse_at    : t -> 'a -> 'a = "caml_rc_reuse_at"      
+external rc_reuse_drop  : t -> unit     = "caml_rc_reuse_drop"      
+
+
 let first_non_constant_constructor_tag = 0
 let last_non_constant_constructor_tag = 245
 
