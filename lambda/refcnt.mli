@@ -31,7 +31,6 @@ module Opt : sig
   val init : dups:Ident.Set.t -> drops:Ident.t list -> t
   val fuse : t -> t
   val specialize_drops : shape_map -> t -> t
-  val flatten_inline_drops : t -> t
   val finalize : ?for_matched:bool -> shape_map -> lambda -> t -> lambda
 end
 

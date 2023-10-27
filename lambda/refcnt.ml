@@ -3,7 +3,7 @@ open Lshape
 
 (* Refcounting primitives *)
 
-let dup_copy_native_name  = "caml_rc_dup_copy"
+let dup_copy_native_name  = "caml_rc_copy"
 let dup_checked_native_name = "caml_rc_dup"
 let dup_ptr_native_name = "caml_rc_ptr_dup"
 let drop_checked_native_name = "caml_rc_drop"
@@ -16,8 +16,8 @@ let get_refcount = "caml_obj_get_refcount"
 (* Phantom refcounting primitives
 
    The following primitives are used in intermediate passes (like drop
-   specialization and reuse analysis). They must be expanded before
-   lowering to Clambda.
+   specialization and reuse analysis). They must be expanded (using [expand])
+   before lowering to Clambda.
 *)
 
 let drop_special_name = "phantom_rc_drop_special"
@@ -220,29 +220,6 @@ module Opt = struct
     let t' = optimize_disjoint fdups fdrops in
 
     Logging.post_dump ppf "drop_specialization" t' ;
-    t'
-
-  let flatten_inline_drops ((dups, drops) as t)=
-    Logging.pre_dump ppf "flatten_inline_drops" t;
-
-    let is_inline = function
-      | (DropInline _ , _) -> true
-      | _ -> false
-    in
-    let rec flatten_drop ((op, x) as drop) =
-      match op with
-      | DropRegular -> [drop]
-      | DropInline ({ uniq= (dups, drops) } as i) ->
-          let (idrops, rdrops) = List.partition is_inline drops in
-          let drop' = 
-            (DropInline { i with uniq= (dups, rdrops) }, x)
-          in
-          let rest = List.concat_map flatten_drop idrops in
-          drop' :: rest
-    in
-    let t' = (dups, List.concat_map flatten_drop drops) in
-
-    Logging.post_dump ppf "flatten_inline_drops" t' ;
     t'
 
   let finalize ?(for_matched = false) shapes lam t =
