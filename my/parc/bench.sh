@@ -67,7 +67,7 @@ function main()
   )
   local srcs=("${programs[@]/#/"$srcdir"}")
   
-  local baseflags="-S -O2 -g"
+  local baseflags="-S -O2"
   local stdlibflag="-I $workdir/stdlib"
   local extra_flags
 
@@ -78,7 +78,7 @@ function main()
     # baseline
     baseline ${baseflags} -o ${output} ${src}
     bench \
-      "$(label "baseline" ${program})" \
+      "$(label "GC" ${program})" \
       "${num_runs}" \
       "${output}"
   
@@ -86,7 +86,7 @@ function main()
     extra_flags="-automated-refcounting"
     parc ${baseflags} ${stdlibflag} ${extra_flags} -o ${output} ${src}
     bench \
-      "$(label "parc" ${program})" \
+      "$(label "Perceus" ${program})" \
       "${num_runs}" \
       "${output}"
 
@@ -94,7 +94,7 @@ function main()
     extra_flags="-automated-refcounting -drop-specialization"
     parc ${baseflags} ${stdlibflag} ${extra_flags} -o ${output} ${src}
     bench \
-      "$(label "parc+drop-specialization" ${program})" \
+      "$(label "Perceus+opt" ${program})" \
       "${num_runs}" \
       "${output}"
   done
