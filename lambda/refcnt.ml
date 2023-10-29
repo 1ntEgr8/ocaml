@@ -109,6 +109,7 @@ module Drop = struct
 end
 
 module Opt = struct
+  (* TODO: this should be a list , but for convenience it's a set *)
   type dups = Ident.Set.t
 
   and drop_op =
@@ -169,6 +170,10 @@ module Opt = struct
   let init ~dups ~drops =
     Logging.init ppf () ;
     (dups, List.map (fun x -> (DropRegular, x)) drops)
+  
+  let merge (dups0, drops0) (dups1, drops1) =
+    (* dups0 and dups1 must be disjoint *)
+    (Ident.Set.union dups0 dups1, drops0 @ drops1)
     
   let fuse ((dups, drops) as t) =
     Logging.pre_dump ppf "fuse" t ;
@@ -184,8 +189,81 @@ module Opt = struct
     Logging.post_dump ppf "fuse" t' ;
     t'
 
-  let rec specialize_drops shapes t =
-    Logging.pre_dump ppf "drop_specialization" t;
+  (* There are two versions of [specialize_drops].
+
+     - [specialize_drops_nested] produces a nested output
+     - [specialize_drops_flat]   produces a flat output
+  *)
+
+  let specialize_drops_flat shapes t = 
+    Logging.pre_dump ppf "drop_specialization (flat)" t;
+
+    let rec specialize_drop_flat dups y =
+      let maybe_children = children_of shapes y in
+      match maybe_children with
+      | None -> (* don't specialize *) (dups, [(DropRegular, y)])
+      | Some children -> (
+        let children = Ident.Set.elements children in
+        let (dups, rest_dups) =
+          Ident.Set.partition (child_of shapes ~parent:y) dups
+        in
+
+        (* dup push-down + fusion in uniq branch *)
+        let (_uniq_dups, uniq_drops) =
+          fuse (dups, (List.map (fun x -> (DropRegular, x)) children))
+        in
+
+        (* Note: _uniq_dups will be the empty set after fusing *)
+
+        (* dup push-down in shared branch. Nothing to fuse with *)
+        let shared_dups = dups in
+
+        (* drop flattening *)
+        let (flatten_drops, uniq_drops) =
+          List.partition (fun (_, y') ->
+            Option.is_some (Ident.Set.find_first_opt (fun x ->
+              descendant shapes ~parent:y' x
+            ) rest_dups)
+          ) uniq_drops
+        in
+
+        let uniq = (Ident.Set.empty, uniq_drops) in
+        let shared =
+          Ident.Set.union shared_dups (Ident.Set.of_list (List.map snd flatten_drops))
+        in
+
+        List.fold_left (fun t' (_, y') ->
+          merge t' (specialize_drop_flat rest_dups y')
+        ) (Ident.Set.empty, [(DropInline {uniq; shared}, y)]) flatten_drops
+      )
+    in
+
+    let rec optimize_disjoint dups drops =
+      match drops with
+      | [] -> (dups, [])
+      | (_, y) :: drops ->
+          let (y_dups, dups') =
+            Ident.Set.partition (descendant shapes ~parent:y) dups
+          in
+          let (y_drops, drops') =
+            List.partition ((fun (_, x) -> descendant shapes ~parent:y x)) drops
+          in
+          let (rest_dups, rest_drops) = optimize_disjoint dups' drops' in
+          let prefix = (rest_dups, y_drops) in
+          let spec = specialize_drop_flat y_dups y in
+          merge prefix
+          @@ merge spec
+          @@ (Ident.Set.empty, rest_drops)
+    in
+    
+    let (dups, drops) = t in
+    let t' = optimize_disjoint dups drops in
+    Logging.post_dump ppf "drop_specialization (flat)" t' ;
+    t'
+
+  (*
+  let rec specialize_drops_nested shapes t =
+    Logging.pre_dump ppf "drop_specialization (nested)" t;
 
     let rec optimize_disjoint dups drops =
       match drops with
@@ -199,10 +277,10 @@ module Opt = struct
           in
           let (rest_dups, rest_drops) = optimize_disjoint dups' drops' in
           let prefix = y_drops in
-          let spec = specialize_drop y_dups y in
+          let spec = specialize_drop_nested y_dups y in
           (rest_dups, prefix @ [spec] @ rest_drops)
 
-    and specialize_drop dups y =
+    and specialize_drop_nested dups y =
       let shared = dups in
       let maybe_children = children_of shapes y in
       match maybe_children with
@@ -212,15 +290,20 @@ module Opt = struct
           Ident.Set.elements children
           |> List.map (fun x -> (DropRegular, x))
         in
-        let uniq = specialize_drops shapes (dups, children) in
+        let uniq = specialize_drops_nested shapes (dups, children) in
         (DropInline { uniq; shared }, y)
     in
 
     let (fdups, fdrops) = fuse t in
     let t' = optimize_disjoint fdups fdrops in
 
-    Logging.post_dump ppf "drop_specialization" t' ;
+    Logging.post_dump ppf "drop_specialization (nested)" t' ;
     t'
+
+  let specialize_drops = specialize_drops_nested
+  *)
+
+  let specialize_drops = specialize_drops_flat
 
   let finalize ?(for_matched = false) shapes lam t =
     let rec helper lam (dups, drops) =

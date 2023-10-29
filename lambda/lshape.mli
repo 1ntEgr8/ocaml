@@ -22,6 +22,7 @@ and shape_map = shape Ident.Map.t
 val merge : shape -> shape -> shape
 val merge_maps : shape Ident.Map.t -> shape Ident.Map.t -> shape Ident.Map.t
 val children_of : shape_map -> Ident.t -> Ident.Set.t option
+val child_of : shape_map -> parent:Ident.t -> Ident.t -> bool
 val descendant : shape_map -> parent:Ident.t -> Ident.t -> bool
 
 val infer_from_value_kind : ?name:Ident.t -> value_kind -> shape

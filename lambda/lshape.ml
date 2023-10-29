@@ -71,6 +71,12 @@ let children_of shapes x =
       | _ -> None)
   | None -> None
 
+let child_of shapes ~parent x =
+  let ys = children_of shapes parent in
+  match ys with
+  | None -> false
+  | Some ys -> Ident.Set.mem x ys
+
 let rec descendant shapes ~parent x =
   let ys = children_of shapes parent in
   match ys with
