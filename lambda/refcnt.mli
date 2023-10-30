@@ -10,7 +10,7 @@ module type Rc = sig
   val checked : Ident.t -> lambda
   val bind_copy: Ident.t -> lambda -> lambda
   val sequence : ?bind_int:bool -> shape_map -> Ident.t -> lambda -> lambda
-  val sequence_many : ?bind_int:bool -> shape_map -> Ident.Set.t -> lambda -> lambda
+  val sequence_many : ?bind_int:bool -> shape_map -> Ident.t list -> lambda -> lambda
 end
 
 module Dup : Rc
@@ -28,7 +28,7 @@ end
 module Opt : sig
   type t
 
-  val init : dups:Ident.Set.t -> drops:Ident.t list -> t
+  val init : dups:Ident.t list -> drops:Ident.t list -> t
   val fuse : t -> t
   val specialize_drops : shape_map -> t -> t
   val finalize : ?for_matched:bool -> shape_map -> lambda -> t -> lambda

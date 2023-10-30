@@ -96,7 +96,7 @@ let parc expr =
     | Lfunction { kind; params; return; body; attr; loc } ->
         Logging.log ppf "parc_helper: Lfunction" env expr;
         (* Rule SLam and SLam-D *)
-        let xs = Vset.of_list (List.map fst params) in
+        let xs = List.map fst params in
         let ys = free_variables env expr in
         let shapes' =
           List.fold_left (fun shapes (id, vk) ->
@@ -105,16 +105,16 @@ let parc expr =
         in
         let body_fvs = free_variables env body in
         let should_own, should_drop =
-          Vset.partition (fun x -> Vset.mem x body_fvs) xs
+          List.partition (fun x -> Vset.mem x body_fvs) xs
         in
-        let should_dup = Vset.diff ys owned in
+        let should_dup = Vset.diff ys owned |> Vset.elements in
         let body' =
           let body'' =
             parc_regular
               {
                 env with
                 borrowed = Vset.empty;
-                owned = Vset.union ys should_own;
+                owned = Vset.union ys (Vset.of_list should_own);
                 shapes = shapes';
               }
               body
@@ -213,9 +213,9 @@ let parc expr =
       Lprim (p, args', loc)
     | Lifthenelse (cond, e1, e2) ->
         let owned_e1 = Vset.inter owned (free_variables env e1) in
-        let should_drop_e1 = Vset.diff owned owned_e1 in
+        let should_drop_e1 = Vset.diff owned owned_e1 |> Vset.elements in
         let owned_e2 = Vset.inter owned (free_variables env e2) in
-        let should_drop_e2 = Vset.diff owned owned_e2 in
+        let should_drop_e2 = Vset.diff owned owned_e2 |> Vset.elements in
         let e1' =
           Drop.sequence_many shapes should_drop_e1 @@
           parc_regular { env with owned= owned_e1 } e1
@@ -273,7 +273,7 @@ let parc expr =
         let owned_bv = Vset.union owned bv in
         let owned' = Vset.inter owned_bv fv in
         let shapes' = Lshape.merge_maps shapes (Lshape.infer_from_matched id pat) in
-        let should_dup = bv in
+        let should_dup = Vset.elements bv in
         let should_drop =
           let base = Vset.diff owned_bv owned' in
           let base' =

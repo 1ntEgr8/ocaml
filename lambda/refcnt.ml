@@ -61,7 +61,7 @@ module type Rc = sig
   include RcOp
 
   val sequence : ?bind_int:bool -> shape_map -> Ident.t -> lambda -> lambda
-  val sequence_many : ?bind_int:bool -> shape_map -> Ident.Set.t -> lambda -> lambda
+  val sequence_many : ?bind_int:bool -> shape_map -> Ident.t list -> lambda -> lambda
 end
 
 module MakeRc (R : RcOp) = struct
@@ -79,7 +79,7 @@ module MakeRc (R : RcOp) = struct
     with Not_found -> Lsequence (checked x, expr)
 
   let sequence_many ?(bind_int = false) shapes xs expr =
-    Ident.Set.fold (sequence ~bind_int shapes) xs expr
+    List.fold_left (Fun.flip (sequence ~bind_int shapes)) expr xs
 end
 
 module Dup = MakeRc (struct
@@ -109,12 +109,11 @@ module Drop = struct
 end
 
 module Opt = struct
-  (* TODO: this should be a list , but for convenience it's a set *)
-  type dups = Ident.Set.t
+  type dups = Ident.t list
 
   and drop_op =
     | DropRegular
-    | DropInline of { uniq: t ; shared: Ident.Set.t }
+    | DropInline of { uniq: t ; shared: Ident.t list }
   and drops = (drop_op * Ident.t) list
 
   (* Maintains the invariant where all dups are done before any drops *)
@@ -124,7 +123,6 @@ module Opt = struct
     open Format
 
     let rec print ppf (dups, drops) =
-      let dups = Ident.Set.elements dups in
       fprintf ppf "@[<v 0>";
       pp_print_list (fun ppf x ->
         fprintf ppf "dup %a" Ident.print x
@@ -139,7 +137,9 @@ module Opt = struct
             fprintf ppf "drop_inline %a@," Ident.print x ;
             fprintf ppf "(" ;
             fprintf ppf "@[<v 2>uniq:@;%a@]@," print uniq;
-            fprintf ppf "@[<v 2>shared:@;%a@]" Ident.Set.print shared;
+            fprintf ppf "@[<v 2>shared:@;%a@]" (pp_print_list
+              (fun ppf x -> 
+                fprintf ppf "%a" Ident.print x )) shared;
             fprintf ppf ")" ;
             fprintf ppf "@]"
       ) ppf drops ;
@@ -172,17 +172,19 @@ module Opt = struct
     (dups, List.map (fun x -> (DropRegular, x)) drops)
   
   let merge (dups0, drops0) (dups1, drops1) =
-    (* dups0 and dups1 must be disjoint *)
-    (Ident.Set.union dups0 dups1, drops0 @ drops1)
+    (dups0 @ dups1, drops0 @ drops1)
     
   let fuse ((dups, drops) as t) =
     Logging.pre_dump ppf "fuse" t ;
 
+    let dups_set = Ident.Set.of_list dups in
+    let drops_set = Ident.Set.of_list (List.map snd drops) in
+
     let dups' =
-      Ident.Set.diff dups (Ident.Set.of_list (List.map snd drops))
+      List.filter (fun x -> not (Ident.Set.mem x drops_set)) dups
     in
     let drops' =
-      List.filter (fun (_, x) -> not (Ident.Set.mem x dups)) drops
+      List.filter (fun (_, x) -> not (Ident.Set.mem x dups_set)) drops
     in
     let t' = (dups', drops') in
 
@@ -205,7 +207,7 @@ module Opt = struct
       | Some children -> (
         let children = Ident.Set.elements children in
         let (dups, rest_dups) =
-          Ident.Set.partition (child_of shapes ~parent:y) dups
+          List.partition (child_of shapes ~parent:y) dups
         in
 
         (* dup push-down + fusion in uniq branch *)
@@ -221,20 +223,20 @@ module Opt = struct
         (* drop flattening *)
         let (flatten_drops, uniq_drops) =
           List.partition (fun (_, y') ->
-            Option.is_some (Ident.Set.find_first_opt (fun x ->
+            Option.is_some (List.find_opt (fun x ->
               descendant shapes ~parent:y' x
             ) rest_dups)
           ) uniq_drops
         in
 
-        let uniq = (Ident.Set.empty, uniq_drops) in
+        let uniq = ([], uniq_drops) in
         let shared =
-          Ident.Set.union shared_dups (Ident.Set.of_list (List.map snd flatten_drops))
+          shared_dups @ (List.map snd flatten_drops)
         in
 
         List.fold_left (fun t' (_, y') ->
           merge t' (specialize_drop_flat rest_dups y')
-        ) (Ident.Set.empty, [(DropInline {uniq; shared}, y)]) flatten_drops
+        ) ([], [(DropInline {uniq; shared}, y)]) flatten_drops
       )
     in
 
@@ -243,7 +245,7 @@ module Opt = struct
       | [] -> (dups, [])
       | (_, y) :: drops ->
           let (y_dups, dups') =
-            Ident.Set.partition (descendant shapes ~parent:y) dups
+            List.partition (descendant shapes ~parent:y) dups
           in
           let (y_drops, drops') =
             List.partition ((fun (_, x) -> descendant shapes ~parent:y x)) drops
@@ -253,13 +255,15 @@ module Opt = struct
           let spec = specialize_drop_flat y_dups y in
           merge prefix
           @@ merge spec
-          @@ (Ident.Set.empty, rest_drops)
+          @@ ([], rest_drops)
     in
     
     let (dups, drops) = t in
     let t' = optimize_disjoint dups drops in
     Logging.post_dump ppf "drop_specialization (flat)" t' ;
     t'
+
+  let specialize_drops = specialize_drops_flat
 
   (*
   let rec specialize_drops_nested shapes t =
@@ -270,7 +274,7 @@ module Opt = struct
       | [] -> (dups, [])
       | (_, y) :: drops ->
           let (y_dups, dups') =
-            Ident.Set.partition (descendant shapes ~parent:y) dups
+            List.partition (descendant shapes ~parent:y) dups
           in
           let (y_drops, drops') =
             List.partition ((fun (_, x) -> descendant shapes ~parent:y x)) drops
@@ -303,8 +307,6 @@ module Opt = struct
   let specialize_drops = specialize_drops_nested
   *)
 
-  let specialize_drops = specialize_drops_flat
-
   let finalize ?(for_matched = false) shapes lam t =
     let rec helper lam (dups, drops) =
       let is_int x =
@@ -313,22 +315,21 @@ module Opt = struct
         | Some shape -> is_int shape
         | _ -> false
       in
-      let merge_idups i1 i2 =
-        Ident.Set.union i1 i2
+      let merge_idups i1 i2 = i1 @ i2
       in
       let sequence_drop (op, x) (lam, idups) =
         match op with
         | DropRegular ->
             (Drop.sequence shapes x lam, idups)
         | DropInline { uniq ; shared } ->
-            let idups0, shared = Ident.Set.partition (is_int) shared in
+            let idups0, shared = List.partition (is_int) shared in
             let euniq, idups1 = helper (Drop.free x) uniq in
             let eshared = Dup.sequence_many shapes shared lambda_unit in
             let edecr = Drop.decr x in
             let idups' = merge_idups idups0 (merge_idups idups idups1) in
             (Lsequence (Drop.special x euniq eshared edecr, lam), idups')
       in
-      let idups, rest_dups = Ident.Set.partition is_int dups in
+      let idups, rest_dups = List.partition is_int dups in
       let drop_seq, idups' = List.fold_right sequence_drop drops (lam, idups) in
       let dup_seq = Dup.sequence_many shapes rest_dups in
       let lam' = dup_seq @@ drop_seq in
