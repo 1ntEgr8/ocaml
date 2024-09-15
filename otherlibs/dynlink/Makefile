@@ -99,6 +99,7 @@ COMPILERLIBS_SOURCES=\
   typing/ident.ml \
   typing/path.ml \
   typing/primitive.ml \
+  typing/typedtree.ml \
   typing/type_immediacy.ml \
   typing/shape.ml \
   typing/types.ml \
