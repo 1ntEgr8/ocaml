@@ -862,7 +862,7 @@ let mk_dstartup f =
 ;;
 
 let mk_automated_refcounting f =
-  "-automated-refcounting", Arg.Unit f, " turn off automated refcount management"
+  "-automated-refcounting", Arg.Unit f, " turn on automated refcount management"
 ;;
 
 let mk_drop_specialization f =
